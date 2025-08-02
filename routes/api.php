@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CompanionProfileController;
-use App\Http\Controllers\Api\StateController;
+use App\Http\Controllers\StateController;
+use App\Http\Controllers\CityController;
+use App\Http\Controllers\PlanController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -26,10 +28,28 @@ Route::prefix('auth')->group(function () {
     Route::post('reset-password', [AuthController::class, 'resetPassword']);
 });
 
-// Rotas públicas de consulta
-Route::get('states', [StateController::class, 'index']);
-Route::get('states/{state}/cities', [StateController::class, 'cities']);
-Route::get('cities/{city}/districts', [StateController::class, 'districts']);
+// Rotas públicas de consulta - Geographic Data
+Route::prefix('geography')->group(function () {
+    Route::get('states', [StateController::class, 'index']);
+    Route::get('states/{state}', [StateController::class, 'show']);
+    Route::get('states/{state}/cities', [StateController::class, 'cities']);
+    Route::get('states/{state}/companions', [StateController::class, 'companions']);
+
+    Route::get('cities', [CityController::class, 'index']);
+    Route::get('cities/{city}', [CityController::class, 'show']);
+    Route::get('cities/{city}/districts', [CityController::class, 'districts']);
+    Route::get('cities/{city}/companions', [CityController::class, 'companions']);
+    Route::get('cities/by-state/{uf}', [CityController::class, 'byStateUf']);
+});
+
+// Rotas públicas de planos
+Route::prefix('plans')->group(function () {
+    Route::get('/', [PlanController::class, 'index']);
+    Route::get('companions', [PlanController::class, 'forCompanions']);
+    Route::get('clients', [PlanController::class, 'forClients']);
+    Route::get('{plan}', [PlanController::class, 'show']);
+    Route::get('slug/{slug}', [PlanController::class, 'bySlug']);
+});
 
 // Rotas públicas de perfis (apenas leitura)
 Route::get('companions', [CompanionProfileController::class, 'index']);

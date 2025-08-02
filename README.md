@@ -1,61 +1,209 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# DesejoLivre Backend API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+API backend do projeto DesejoLivre construída com Laravel e Docker, seguindo a arquitetura planejada para uma plataforma de anúncios de acompanhantes.
 
-## About Laravel
+## 🚀 Tecnologias
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **Laravel 12** (PHP 8.3)
+- **PostgreSQL 15** (Banco de dados)
+- **Redis 7** (Cache e sessões)
+- **Laravel Sanctum** (Autenticação API)
+- **Laravel Horizon** (Gerenciamento de filas)
+- **Laravel Scout** (Busca)
+- **Spatie Media Library** (Gerenciamento de mídia)
+- **Docker & Docker Compose** (Containerização)
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 🏗️ Arquitetura
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+O projeto implementa:
 
-## Learning Laravel
+- **Múltiplos guards de autenticação** (client, companion, admin)
+- **API RESTful** com endpoints organizados por tipo de usuário
+- **Sistema de planos** e assinaturas
+- **Gerenciamento de mídia** para fotos e vídeos
+- **Sistema de avaliações** e favoritos
+- **Busca avançada** com filtros geográficos e demográficos
+- **Sistema de moderação** de conteúdo
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## 🐳 Configuração Docker
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+### Portas utilizadas (customizadas para evitar conflitos):
+- **Laravel**: http://localhost:8085
+- **PostgreSQL**: localhost:5435
+- **Redis**: localhost:6381
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Containers:
+- `desejo-livre-app` - Aplicação Laravel (PHP-FPM)
+- `desejo-livre-nginx` - Servidor web
+- `desejo-livre-db` - PostgreSQL
+- `desejo-livre-redis` - Redis
+- `desejo-livre-horizon` - Laravel Horizon
 
-## Laravel Sponsors
+## 🚀 Como executar
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### 1. Clone o projeto
+```bash
+git clone <repository-url>
+cd desejo-livre-backend
+```
 
-### Premium Partners
+### 2. Construa e inicie os containers
+```bash
+docker-compose build
+docker-compose up -d
+```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+### 3. Execute as migrations
+```bash
+docker-compose exec app php artisan migrate
+```
 
-## Contributing
+### 4. Acesse a aplicação
+- **API**: http://localhost:8085
+- **Horizon Dashboard**: http://localhost:8085/horizon
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## 📊 Banco de Dados
 
-## Code of Conduct
+O banco implementa a seguinte estrutura:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Principais tabelas:
+- `users` - Usuários (client, companion, admin)
+- `companion_profiles` - Perfis de acompanhantes
+- `states`, `cities`, `districts` - Estrutura geográfica
+- `plans`, `subscriptions` - Sistema de planos
+- `media` - Fotos e vídeos
+- `reviews`, `favorites` - Avaliações e favoritos
+- `blog_posts`, `blog_categories` - Sistema de blog
 
-## Security Vulnerabilities
+## 🔐 Autenticação
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+O sistema implementa múltiplos guards:
 
-## License
+### Guards disponíveis:
+- `client` - Para clientes
+- `companion` - Para acompanhantes
+- `admin` - Para administradores
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### Exemplo de uso:
+```php
+// Middleware para acompanhantes
+Route::middleware(['auth:companion'])->group(function () {
+    // Rotas protegidas para acompanhantes
+});
+```
+
+## 🛠️ Comandos úteis
+
+### Containers
+```bash
+# Ver status dos containers
+docker-compose ps
+
+# Ver logs
+docker-compose logs app
+
+# Acessar container da aplicação
+docker-compose exec app bash
+
+# Parar containers
+docker-compose down
+
+# Rebuild completo
+docker-compose down -v && docker-compose build && docker-compose up -d
+```
+
+### Laravel
+```bash
+# Executar migrations
+docker-compose exec app php artisan migrate
+
+# Criar migration
+docker-compose exec app php artisan make:migration create_table_name
+
+# Criar model
+docker-compose exec app php artisan make:model ModelName
+
+# Executar seeders
+docker-compose exec app php artisan db:seed
+
+# Limpar cache
+docker-compose exec app php artisan cache:clear
+docker-compose exec app php artisan config:clear
+docker-compose exec app php artisan route:clear
+```
+
+## 📋 Rotas da API
+
+### Autenticação
+- `POST /api/auth/register/client` - Registro de cliente
+- `POST /api/auth/register/companion` - Registro de acompanhante
+- `POST /api/auth/login` - Login
+- `POST /api/auth/logout` - Logout
+
+### Públicas
+- `GET /api/states` - Listar estados
+- `GET /api/states/{state}/cities` - Cidades de um estado
+- `GET /api/companions` - Listar perfis de acompanhantes
+- `GET /api/companions/{companion}` - Visualizar perfil
+
+### Cliente (auth:client)
+- `GET /api/client/favorites` - Favoritos
+- `POST /api/companions/{companion}/favorite` - Adicionar favorito
+- `POST /api/companions/{companion}/review` - Avaliar
+
+### Acompanhante (auth:companion)
+- `GET /api/companion/my-profile` - Meu perfil
+- `PUT /api/companion/my-profile` - Atualizar perfil
+- `POST /api/companion/my-profile/photos` - Upload fotos
+- `POST /api/companion/online` - Ficar online
+
+### Admin (auth:admin)
+- `GET /api/admin/companions/pending` - Perfis pendentes
+- `POST /api/companions/{companion}/verify` - Verificar perfil
+- `GET /api/admin/dashboard` - Dashboard
+
+## 🔧 Configuração
+
+### Variáveis de ambiente importantes:
+```env
+# Banco de dados
+DB_CONNECTION=pgsql
+DB_HOST=db
+DB_PORT=5432
+DB_DATABASE=desejo_livre_db
+
+# Cache e sessões
+CACHE_STORE=redis
+SESSION_DRIVER=redis
+REDIS_HOST=redis
+
+# Configurações específicas
+PHONE_CHANGE_LIMIT_DAYS=30
+CITY_CHANGE_LIMIT_DAYS=30
+MAX_PHOTOS_PER_PROFILE=20
+MAX_VIDEOS_PER_PROFILE=5
+```
+
+## 📦 Dependências principais
+
+```json
+{
+    "laravel/sanctum": "^4.2",
+    "spatie/laravel-medialibrary": "^11.13",
+    "laravel/horizon": "^5.33",
+    "laravel/scout": "^10.17",
+    "spatie/laravel-sluggable": "^3.7"
+}
+```
+
+## 🏃‍♂️ Próximos passos
+
+1. Implementar controllers com lógica de negócio
+2. Criar seeders para dados de teste
+3. Configurar sistema de filas
+4. Implementar testes automatizados
+5. Configurar CI/CD
+
+## 📄 Licença
+
+Este projeto é privado e confidencial.
