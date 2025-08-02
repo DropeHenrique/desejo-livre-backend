@@ -11,9 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('phone_change_history', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
+        Schema::create('blog_post_category', function (Blueprint $table) {
+            $table->foreignId('blog_post_id')->constrained()->onDelete('cascade');
+            $table->foreignId('blog_category_id')->constrained()->onDelete('cascade');
+            $table->primary(['blog_post_id', 'blog_category_id']);
         });
     }
 
@@ -22,6 +23,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('phone_change_history');
+        Schema::dropIfExists('blog_post_category');
     }
 };

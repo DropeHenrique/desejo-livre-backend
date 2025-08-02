@@ -24,6 +24,7 @@ class AuthController extends Controller
      * @bodyParam password string required Senha (mínimo 8 caracteres). Example: minhasenha123
      * @bodyParam password_confirmation string required Confirmação da senha. Example: minhasenha123
      * @bodyParam phone string Telefone do cliente (opcional). Example: (11) 99999-9999
+     * @bodyParam cep string CEP do cliente (opcional). Example: 01001000
      * @response 201 {
      *   "message": "Cliente registrado com sucesso",
      *   "user": {
@@ -50,6 +51,7 @@ class AuthController extends Controller
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
             'phone' => 'nullable|string|max:20',
+            'cep' => 'nullable|string|max:10',
         ]);
 
         if ($validator->fails()) {
@@ -68,11 +70,16 @@ class AuthController extends Controller
             'active' => true,
         ]);
 
+        // Processa endereço se CEP foi fornecido
+        if ($request->cep) {
+            $user->updateAddressFromCep($request->cep);
+        }
+
         $token = $user->createToken('auth-token', ['client'])->plainTextToken;
 
         return response()->json([
             'message' => 'Cliente registrado com sucesso',
-            'user' => $user->makeHidden(['password']),
+            'user' => $user->fresh()->load(['state', 'city', 'district'])->makeHidden(['password']),
             'token' => $token
         ], 201);
     }
@@ -115,6 +122,7 @@ class AuthController extends Controller
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
             'phone' => 'nullable|string|max:20',
+            'cep' => 'nullable|string|max:10',
         ]);
 
         if ($validator->fails()) {
@@ -133,11 +141,16 @@ class AuthController extends Controller
             'active' => true,
         ]);
 
+        // Processa endereço se CEP foi fornecido
+        if ($request->cep) {
+            $user->updateAddressFromCep($request->cep);
+        }
+
         $token = $user->createToken('auth-token', ['companion'])->plainTextToken;
 
         return response()->json([
             'message' => 'Acompanhante registrada com sucesso',
-            'user' => $user->makeHidden(['password']),
+            'user' => $user->fresh()->load(['state', 'city', 'district'])->makeHidden(['password']),
             'token' => $token
         ], 201);
     }
@@ -254,6 +267,9 @@ class AuthController extends Controller
             'name' => 'sometimes|required|string|max:255',
             'phone' => 'nullable|string|max:20',
             'password' => 'nullable|string|min:8|confirmed',
+            'cep' => 'nullable|string|max:10',
+            'address' => 'nullable|string|max:255',
+            'complement' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -263,7 +279,7 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $data = $request->only(['name', 'phone']);
+        $data = $request->only(['name', 'phone', 'address', 'complement']);
 
         if ($request->password) {
             $data['password'] = Hash::make($request->password);
@@ -271,9 +287,14 @@ class AuthController extends Controller
 
         $user->update($data);
 
+        // Processa endereço se CEP foi fornecido
+        if ($request->cep) {
+            $user->updateAddressFromCep($request->cep);
+        }
+
         return response()->json([
             'message' => 'Profile updated successfully',
-            'user' => $user->fresh()->makeHidden(['password'])
+            'user' => $user->fresh()->load(['state', 'city', 'district'])->makeHidden(['password'])
         ]);
     }
 

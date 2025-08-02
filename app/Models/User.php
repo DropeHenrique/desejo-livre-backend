@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Traits\HasAddress;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -10,7 +11,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasFactory, Notifiable, HasApiTokens, HasAddress;
 
     protected $fillable = [
         'name',
@@ -19,6 +20,12 @@ class User extends Authenticatable
         'user_type',
         'phone',
         'active',
+        'cep',
+        'address',
+        'complement',
+        'state_id',
+        'city_id',
+        'district_id',
     ];
 
     protected $hidden = [
@@ -66,6 +73,22 @@ class User extends Authenticatable
         return $this->hasMany(BlogPost::class);
     }
 
+    // Relacionamentos de endereço
+    public function state()
+    {
+        return $this->belongsTo(State::class);
+    }
+
+    public function city()
+    {
+        return $this->belongsTo(City::class);
+    }
+
+    public function district()
+    {
+        return $this->belongsTo(District::class);
+    }
+
     // Scopes
     public function scopeClients($query)
     {
@@ -101,5 +124,10 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->user_type === 'admin';
+    }
+
+    public function isAuthor(): bool
+    {
+        return $this->isAdmin() || $this->user_type === 'author';
     }
 }

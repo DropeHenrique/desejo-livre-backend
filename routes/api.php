@@ -1,10 +1,21 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\CompanionProfileController;
-use App\Http\Controllers\StateController;
-use App\Http\Controllers\CityController;
-use App\Http\Controllers\PlanController;
+use App\Http\Controllers\Api\StateController;
+use App\Http\Controllers\Api\CityController;
+use App\Http\Controllers\Api\DistrictController;
+use App\Http\Controllers\Api\ServiceTypeController;
+use App\Http\Controllers\Api\PlanController;
+use App\Http\Controllers\Api\SubscriptionController;
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\FavoriteController;
+use App\Http\Controllers\Api\MediaController;
+use App\Http\Controllers\Api\BlogController;
+use App\Http\Controllers\Api\BlogCategoryController;
+use App\Http\Controllers\Api\CepController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -19,7 +30,11 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Rotas públicas de autenticação
+// ============================================================================
+// ROTAS PÚBLICAS
+// ============================================================================
+
+// Autenticação
 Route::prefix('auth')->group(function () {
     Route::post('register/client', [AuthController::class, 'registerClient']);
     Route::post('register/companion', [AuthController::class, 'registerCompanion']);
@@ -28,93 +43,240 @@ Route::prefix('auth')->group(function () {
     Route::post('reset-password', [AuthController::class, 'resetPassword']);
 });
 
-// Rotas públicas de consulta - Geographic Data
+// Busca de CEP (público)
+Route::prefix('cep')->group(function () {
+    Route::post('search', [CepController::class, 'searchByCep']);
+    Route::post('search-by-address', [CepController::class, 'searchByAddress']);
+    Route::post('validate', [CepController::class, 'validateCep']);
+    Route::post('search-and-update', [CepController::class, 'searchAndUpdateLocation']);
+});
+
+// Dados geográficos
 Route::prefix('geography')->group(function () {
+    // Estados
     Route::get('states', [StateController::class, 'index']);
     Route::get('states/{state}', [StateController::class, 'show']);
     Route::get('states/{state}/cities', [StateController::class, 'cities']);
-    Route::get('states/{state}/companions', [StateController::class, 'companions']);
 
+    // Cidades
     Route::get('cities', [CityController::class, 'index']);
+    Route::get('cities/popular', [CityController::class, 'popular']);
+    Route::get('cities/search', [CityController::class, 'search']);
     Route::get('cities/{city}', [CityController::class, 'show']);
-    Route::get('cities/{city}/districts', [CityController::class, 'districts']);
-    Route::get('cities/{city}/companions', [CityController::class, 'companions']);
-    Route::get('cities/by-state/{uf}', [CityController::class, 'byStateUf']);
+    Route::get('cities/by-state/{state}', [CityController::class, 'byState']);
+
+    // Bairros
+    Route::get('districts', [DistrictController::class, 'index']);
+    Route::get('districts/search', [DistrictController::class, 'search']);
+    Route::get('districts/{district}', [DistrictController::class, 'show']);
+    Route::get('districts/by-city/{city}', [DistrictController::class, 'byCity']);
 });
 
-// Rotas públicas de planos
+// Tipos de serviço
+Route::prefix('service-types')->group(function () {
+    Route::get('/', [ServiceTypeController::class, 'index']);
+    Route::get('popular', [ServiceTypeController::class, 'popular']);
+    Route::get('{serviceType}', [ServiceTypeController::class, 'show']);
+});
+
+// Planos
 Route::prefix('plans')->group(function () {
     Route::get('/', [PlanController::class, 'index']);
-    Route::get('companions', [PlanController::class, 'forCompanions']);
-    Route::get('clients', [PlanController::class, 'forClients']);
+    Route::get('by-user-type/{userType}', [PlanController::class, 'byUserType']);
+    Route::get('compare', [PlanController::class, 'compare']);
     Route::get('{plan}', [PlanController::class, 'show']);
-    Route::get('slug/{slug}', [PlanController::class, 'bySlug']);
 });
 
-// Rotas públicas de perfis (apenas leitura)
-Route::get('companions', [CompanionProfileController::class, 'index']);
-Route::get('companions/{companion}', [CompanionProfileController::class, 'show']);
+// Perfis de acompanhantes (públicos)
+Route::prefix('companions')->group(function () {
+    Route::get('/', [CompanionProfileController::class, 'index']);
+    Route::get('{companion:slug}', [CompanionProfileController::class, 'show']);
+});
 
-// Rotas protegidas para clientes
-Route::middleware(['auth:client'])->prefix('client')->group(function () {
-    Route::get('profile', [AuthController::class, 'profile']);
-    Route::put('profile', [AuthController::class, 'updateProfile']);
-    Route::post('logout', [AuthController::class, 'logout']);
+// Blog (público)
+Route::prefix('blog')->group(function () {
+    Route::get('posts', [BlogController::class, 'index']);
+    Route::get('posts/recent', [BlogController::class, 'recent']);
+    Route::get('posts/featured', [BlogController::class, 'featured']);
+    Route::get('posts/search', [BlogController::class, 'search']);
+    Route::get('posts/{post:slug}', [BlogController::class, 'show']);
 
-    // Favoritos
-    Route::get('favorites', [CompanionProfileController::class, 'favorites']);
-    Route::post('companions/{companion}/favorite', [CompanionProfileController::class, 'addFavorite']);
-    Route::delete('companions/{companion}/favorite', [CompanionProfileController::class, 'removeFavorite']);
+    Route::get('categories', [BlogCategoryController::class, 'index']);
+    Route::get('categories/popular', [BlogCategoryController::class, 'popular']);
+    Route::get('categories/{category:slug}', [BlogCategoryController::class, 'show']);
+    Route::get('categories/{category:slug}/posts', [BlogCategoryController::class, 'posts']);
+});
+
+// ============================================================================
+// ROTAS AUTENTICADAS
+// ============================================================================
+
+Route::middleware(['auth:sanctum'])->group(function () {
+
+    // Perfil do usuário
+    Route::prefix('user')->group(function () {
+        Route::get('profile', [AuthController::class, 'profile']);
+        Route::put('profile', [AuthController::class, 'updateProfile']);
+        Route::post('change-password', [UserController::class, 'changePassword']);
+        Route::post('deactivate', [UserController::class, 'deactivate']);
+        Route::get('stats', [UserController::class, 'stats']);
+        Route::post('logout', [AuthController::class, 'logout']);
+    });
+
+    // Assinaturas
+    Route::prefix('subscriptions')->group(function () {
+        Route::get('/', [SubscriptionController::class, 'index']);
+        Route::post('/', [SubscriptionController::class, 'store']);
+        Route::get('{subscription}', [SubscriptionController::class, 'show']);
+        Route::post('{subscription}/cancel', [SubscriptionController::class, 'cancel']);
+        Route::post('{subscription}/renew', [SubscriptionController::class, 'renew']);
+    });
+
+    // Pagamentos
+    Route::prefix('payments')->group(function () {
+        Route::get('/', [PaymentController::class, 'index']);
+        Route::post('/', [PaymentController::class, 'store']);
+        Route::get('{payment}', [PaymentController::class, 'show']);
+        Route::post('{payment}/refund', [PaymentController::class, 'refund']);
+    });
 
     // Avaliações
-    Route::post('companions/{companion}/review', [CompanionProfileController::class, 'addReview']);
-});
-
-// Rotas protegidas para acompanhantes
-Route::middleware(['auth:companion'])->prefix('companion')->group(function () {
-    Route::get('profile', [AuthController::class, 'profile']);
-    Route::put('profile', [AuthController::class, 'updateProfile']);
-    Route::post('logout', [AuthController::class, 'logout']);
-
-    // Gerenciamento do perfil
-    Route::get('my-profile', [CompanionProfileController::class, 'myProfile']);
-    Route::put('my-profile', [CompanionProfileController::class, 'updateMyProfile']);
-
-    // Mídia
-    Route::post('my-profile/photos', [CompanionProfileController::class, 'uploadPhoto']);
-    Route::delete('photos/{media}', [CompanionProfileController::class, 'deletePhoto']);
-    Route::post('my-profile/videos', [CompanionProfileController::class, 'uploadVideo']);
-    Route::delete('videos/{media}', [CompanionProfileController::class, 'deleteVideo']);
-
-    // Status online
-    Route::post('online', [CompanionProfileController::class, 'setOnline']);
-    Route::post('offline', [CompanionProfileController::class, 'setOffline']);
-
-    // Estatísticas
-    Route::get('stats', [CompanionProfileController::class, 'stats']);
-});
-
-// Rotas protegidas para administradores
-Route::middleware(['auth:admin'])->prefix('admin')->group(function () {
-    Route::get('profile', [AuthController::class, 'profile']);
-    Route::post('logout', [AuthController::class, 'logout']);
-
-    // Moderação de perfis
-    Route::get('companions/pending', [CompanionProfileController::class, 'pending']);
-    Route::post('companions/{companion}/verify', [CompanionProfileController::class, 'verify']);
-    Route::post('companions/{companion}/reject', [CompanionProfileController::class, 'reject']);
-
-    // Gestão de usuários
-    Route::get('users', [AuthController::class, 'listUsers']);
-    Route::put('users/{user}/toggle-status', [AuthController::class, 'toggleUserStatus']);
-
-    // Dashboard
-    Route::get('dashboard', [AuthController::class, 'dashboard']);
-});
-
-// Rotas autenticadas gerais (qualquer tipo de usuário)
-Route::middleware(['auth:api'])->group(function () {
-    Route::get('user', function (Request $request) {
-        return $request->user();
+    Route::prefix('reviews')->group(function () {
+        Route::get('/', [ReviewController::class, 'index']);
+        Route::post('/', [ReviewController::class, 'store']);
+        Route::get('{review}', [ReviewController::class, 'show']);
+        Route::put('{review}', [ReviewController::class, 'update']);
+        Route::delete('{review}', [ReviewController::class, 'destroy']);
+        Route::get('stats', [ReviewController::class, 'stats']);
     });
+
+    // Favoritos
+    Route::prefix('favorites')->group(function () {
+        Route::get('/', [FavoriteController::class, 'index']);
+        Route::post('/', [FavoriteController::class, 'store']);
+        Route::delete('{favorite}', [FavoriteController::class, 'destroy']);
+        Route::post('toggle', [FavoriteController::class, 'toggle']);
+        Route::post('clear', [FavoriteController::class, 'clear']);
+        Route::get('stats', [FavoriteController::class, 'stats']);
+    });
+    Route::get('companions/{companion}/is-favorite', [FavoriteController::class, 'check']);
+
+    // ============================================================================
+    // ROTAS ESPECÍFICAS PARA ACOMPANHANTES
+    // ============================================================================
+
+    Route::middleware(['user.type:companion'])->group(function () {
+        // Perfil da acompanhante
+        Route::prefix('companion')->group(function () {
+            Route::get('my-profile', [CompanionProfileController::class, 'myProfile']);
+            Route::put('my-profile', [CompanionProfileController::class, 'updateMyProfile']);
+            Route::post('online', [CompanionProfileController::class, 'setOnline']);
+            Route::post('offline', [CompanionProfileController::class, 'setOffline']);
+            Route::get('stats', [CompanionProfileController::class, 'stats']);
+        });
+
+        // Mídia
+        Route::prefix('media')->group(function () {
+            Route::get('companion/{companionProfile}', [MediaController::class, 'index']);
+            Route::post('companion/{companionProfile}', [MediaController::class, 'store']);
+            Route::get('{media}', [MediaController::class, 'show']);
+            Route::put('{media}', [MediaController::class, 'update']);
+            Route::delete('{media}', [MediaController::class, 'destroy']);
+            Route::post('{media}/primary', [MediaController::class, 'setPrimary']);
+            Route::post('companion/{companionProfile}/reorder', [MediaController::class, 'reorder']);
+            Route::post('{media}/thumbnail', [MediaController::class, 'generateThumbnail']);
+        });
+    });
+
+    // ============================================================================
+    // ROTAS ESPECÍFICAS PARA ADMINISTRADORES
+    // ============================================================================
+
+    Route::middleware(['user.type:admin'])->prefix('admin')->group(function () {
+        // Usuários
+        Route::prefix('users')->group(function () {
+            Route::get('/', [UserController::class, 'index']);
+            Route::get('{user}', [UserController::class, 'show']);
+            Route::put('{user}', [UserController::class, 'update']);
+        });
+
+        // Tipos de serviço
+        Route::prefix('service-types')->group(function () {
+            Route::post('/', [ServiceTypeController::class, 'store']);
+            Route::put('{serviceType}', [ServiceTypeController::class, 'update']);
+            Route::delete('{serviceType}', [ServiceTypeController::class, 'destroy']);
+        });
+
+        // Planos
+        Route::prefix('plans')->group(function () {
+            Route::post('/', [PlanController::class, 'store']);
+            Route::put('{plan}', [PlanController::class, 'update']);
+            Route::delete('{plan}', [PlanController::class, 'destroy']);
+        });
+
+        // Assinaturas
+        Route::get('subscriptions/stats', [SubscriptionController::class, 'stats']);
+
+        // Pagamentos
+        Route::get('payments/stats', [PaymentController::class, 'stats']);
+
+        // Avaliações
+        Route::prefix('reviews')->group(function () {
+            Route::get('pending', [ReviewController::class, 'pending']);
+            Route::post('{review}/approve', [ReviewController::class, 'approve']);
+            Route::post('{review}/reject', [ReviewController::class, 'reject']);
+            Route::post('{review}/verify', [ReviewController::class, 'verify']);
+        });
+
+        // Perfis de acompanhantes
+        Route::prefix('companions')->group(function () {
+            Route::get('pending', [CompanionProfileController::class, 'pending']);
+            Route::post('{companion}/verify', [CompanionProfileController::class, 'verify']);
+            Route::post('{companion}/reject', [CompanionProfileController::class, 'reject']);
+        });
+
+        // Blog
+        Route::prefix('blog')->group(function () {
+            Route::post('posts', [BlogController::class, 'store']);
+            Route::put('posts/{post}', [BlogController::class, 'update']);
+            Route::delete('posts/{post}', [BlogController::class, 'destroy']);
+            Route::post('posts/{post}/publish', [BlogController::class, 'publish']);
+            Route::post('posts/{post}/archive', [BlogController::class, 'archive']);
+
+            Route::post('categories', [BlogCategoryController::class, 'store']);
+            Route::put('categories/{category}', [BlogCategoryController::class, 'update']);
+            Route::delete('categories/{category}', [BlogCategoryController::class, 'destroy']);
+        });
+
+        // Dashboard
+        Route::get('dashboard', [AuthController::class, 'dashboard']);
+    });
+
+    // ============================================================================
+    // ROTAS ESPECÍFICAS PARA AUTORES DO BLOG
+    // ============================================================================
+
+    Route::middleware(['can:author'])->prefix('blog')->group(function () {
+        Route::post('posts', [BlogController::class, 'store']);
+        Route::put('posts/{post}', [BlogController::class, 'update']);
+        Route::delete('posts/{post}', [BlogController::class, 'destroy']);
+        Route::post('posts/{post}/publish', [BlogController::class, 'publish']);
+        Route::post('posts/{post}/archive', [BlogController::class, 'archive']);
+    });
+});
+
+// ============================================================================
+// WEBHOOKS (sem autenticação)
+// ============================================================================
+
+Route::prefix('webhooks')->group(function () {
+    Route::post('payments', [PaymentController::class, 'processWebhook']);
+});
+
+// ============================================================================
+// ROTA DE TESTE
+// ============================================================================
+
+Route::get('ping', function () {
+    return response()->json(['message' => 'API is running!', 'timestamp' => now()]);
 });

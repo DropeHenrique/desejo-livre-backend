@@ -11,8 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('blog_post_category', function (Blueprint $table) {
+        Schema::create('city_change_history', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('companion_profile_id')->constrained()->onDelete('cascade');
+            $table->foreignId('old_city_id')->nullable()->constrained('cities')->onDelete('set null');
+            $table->foreignId('new_city_id')->constrained('cities')->onDelete('cascade');
             $table->timestamps();
         });
     }
@@ -22,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('blog_post_category');
+        Schema::dropIfExists('city_change_history');
     }
 };

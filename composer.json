@@ -17,6 +17,7 @@
         "spatie/laravel-sluggable": "^3.7"
     },
     "require-dev": {
+        "algolia/algoliasearch-client-php": "^4.26",
         "fakerphp/faker": "^1.23",
         "laravel/pail": "^1.2.2",
         "laravel/pint": "^1.13",

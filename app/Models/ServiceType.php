@@ -14,13 +14,6 @@ class ServiceType extends Model
     protected $fillable = [
         'name',
         'slug',
-        'description',
-        'icon',
-        'active',
-    ];
-
-    protected $casts = [
-        'active' => 'boolean',
     ];
 
     public function getSlugOptions(): SlugOptions
@@ -33,12 +26,19 @@ class ServiceType extends Model
     // Relacionamentos
     public function companionServices()
     {
+        return $this->hasMany(CompanionService::class);
+    }
+
+    public function companionProfiles()
+    {
         return $this->belongsToMany(CompanionProfile::class, 'companion_services');
     }
 
     // Scopes
-    public function scopeActive($query)
+    public function scopePopular($query, $limit = 10)
     {
-        return $query->where('active', true);
+        return $query->withCount('companionServices')
+                    ->orderBy('companion_services_count', 'desc')
+                    ->limit($limit);
     }
 }

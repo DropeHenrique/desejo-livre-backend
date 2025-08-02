@@ -11,8 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('favorites', function (Blueprint $table) {
+        Schema::create('phone_change_history', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('companion_profile_id')->constrained()->onDelete('cascade');
+            $table->string('old_phone', 20)->nullable();
+            $table->string('new_phone', 20);
             $table->timestamps();
         });
     }
@@ -22,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('favorites');
+        Schema::dropIfExists('phone_change_history');
     }
 };

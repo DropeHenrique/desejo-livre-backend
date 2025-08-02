@@ -4,16 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Spatie\MediaLibrary\HasMedia;
-use Spatie\MediaLibrary\InteractsWithMedia;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Spatie\Sluggable\HasSlug;
 use Spatie\Sluggable\SlugOptions;
 use Laravel\Scout\Searchable;
 
-class CompanionProfile extends Model implements HasMedia
+class CompanionProfile extends Model
 {
-    use HasFactory, HasSlug, InteractsWithMedia, Searchable;
+    use HasFactory, HasSlug, Searchable;
 
     protected $fillable = [
         'user_id',
@@ -62,29 +59,6 @@ class CompanionProfile extends Model implements HasMedia
             ->saveSlugsTo('slug');
     }
 
-    // Media Collections
-    public function registerMediaCollections(): void
-    {
-        $this->addMediaCollection('photos')
-              ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp']);
-
-        $this->addMediaCollection('videos')
-              ->acceptsMimeTypes(['video/mp4', 'video/webm']);
-    }
-
-    public function registerMediaConversions(Media $media = null): void
-    {
-        $this->addMediaConversion('thumb')
-              ->width(300)
-              ->height(300)
-              ->sharpen(10);
-
-        $this->addMediaConversion('large')
-              ->width(800)
-              ->height(800)
-              ->sharpen(10);
-    }
-
     // Relacionamentos
     public function user()
     {
@@ -109,6 +83,26 @@ class CompanionProfile extends Model implements HasMedia
     public function districts()
     {
         return $this->belongsToMany(District::class, 'companion_districts');
+    }
+
+    public function media()
+    {
+        return $this->hasMany(Media::class);
+    }
+
+    public function photos()
+    {
+        return $this->hasMany(Media::class)->photos();
+    }
+
+    public function videos()
+    {
+        return $this->hasMany(Media::class)->videos();
+    }
+
+    public function primaryPhoto()
+    {
+        return $this->hasOne(Media::class)->primary()->photos();
     }
 
     public function reviews()
@@ -151,6 +145,13 @@ class CompanionProfile extends Model implements HasMedia
     {
         return $query->whereNotNull('plan_id')
                     ->where('plan_expires_at', '>', now());
+    }
+
+    public function scopeWithPhotos($query)
+    {
+        return $query->whereHas('media', function ($q) {
+            $q->photos();
+        });
     }
 
     // Scout
@@ -197,5 +198,34 @@ class CompanionProfile extends Model implements HasMedia
     public function markOffline(): void
     {
         $this->update(['online_status' => false]);
+    }
+
+    public function getDisplayAgeAttribute(): ?int
+    {
+        return $this->hide_age ? null : $this->age;
+    }
+
+    public function getFormattedHeightAttribute(): ?string
+    {
+        if (!$this->height) return null;
+        return $this->height . ' cm';
+    }
+
+    public function getFormattedWeightAttribute(): ?string
+    {
+        if (!$this->weight) return null;
+        return $this->weight . ' kg';
+    }
+
+    public function getPrimaryPhotoUrlAttribute(): ?string
+    {
+        $primaryPhoto = $this->primaryPhoto()->first();
+        return $primaryPhoto ? $this->primaryPhoto()->first()->url : null;
+    }
+
+    public function getThumbnailUrlAttribute(): ?string
+    {
+        $primaryPhoto = $this->primaryPhoto()->first();
+        return $primaryPhoto ? $this->primaryPhoto()->first()->thumbnail_url : null;
     }
 }
