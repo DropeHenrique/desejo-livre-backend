@@ -56,7 +56,7 @@ class StateFactory extends Factory
         }
 
         $name = 'Estado ' . $counter;
-        $uf = strtoupper($this->faker->unique()->lexify('X??')) . $counter;
+        $uf = strtoupper($this->faker->unique()->lexify('??'));
         $counter++;
         return [
             'name' => $name,
