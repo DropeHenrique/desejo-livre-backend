@@ -144,20 +144,20 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('reviews')->group(function () {
         Route::get('/', [ReviewController::class, 'index']);
         Route::post('/', [ReviewController::class, 'store']);
+        Route::get('stats', [ReviewController::class, 'stats']);
         Route::get('{review}', [ReviewController::class, 'show']);
         Route::put('{review}', [ReviewController::class, 'update']);
         Route::delete('{review}', [ReviewController::class, 'destroy']);
-        Route::get('stats', [ReviewController::class, 'stats']);
     });
 
     // Favoritos
     Route::prefix('favorites')->group(function () {
         Route::get('/', [FavoriteController::class, 'index']);
         Route::post('/', [FavoriteController::class, 'store']);
+        Route::get('stats', [FavoriteController::class, 'stats']);
         Route::delete('{favorite}', [FavoriteController::class, 'destroy']);
         Route::post('toggle', [FavoriteController::class, 'toggle']);
         Route::post('clear', [FavoriteController::class, 'clear']);
-        Route::get('stats', [FavoriteController::class, 'stats']);
     });
     Route::get('companions/{companion}/is-favorite', [FavoriteController::class, 'check']);
 

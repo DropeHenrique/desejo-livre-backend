@@ -20,12 +20,8 @@ class ReviewControllerTest extends TestCase
     {
         parent::setUp();
 
-        // Desabilitar Scout para evitar problemas com Algolia
+        // Desabilitar Scout completamente para os testes
         config(['scout.driver' => 'null']);
-
-        // Criar dados geográficos necessários
-        $this->state = State::factory()->create(['name' => 'São Paulo', 'uf' => 'SP']);
-        $this->city = City::factory()->create(['name' => 'São Paulo', 'state_id' => $this->state->id]);
     }
 
     // ============================================================================
