@@ -56,7 +56,11 @@ class StateFactory extends Factory
         }
 
         $name = 'Estado ' . $counter;
-        $uf = strtoupper($this->faker->unique()->lexify('??'));
+        // Gerar exatamente 2 letras maiúsculas para UF, garantindo unicidade
+        $letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        do {
+            $uf = $letters[rand(0, 25)] . $letters[rand(0, 25)];
+        } while (State::where('uf', $uf)->exists());
         $counter++;
         return [
             'name' => $name,
