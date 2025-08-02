@@ -56,11 +56,8 @@ class StateFactory extends Factory
         }
 
         $name = 'Estado ' . $counter;
-        // Gerar exatamente 2 letras maiúsculas para UF, garantindo unicidade
-        $letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        do {
-            $uf = $letters[rand(0, 25)] . $letters[rand(0, 25)];
-        } while (State::where('uf', $uf)->exists());
+        // Usar uma sequência numérica simples para UF quando não há mais estados brasileiros
+        $uf = 'ST' . str_pad($counter, 2, '0', STR_PAD_LEFT);
         $counter++;
         return [
             'name' => $name,
