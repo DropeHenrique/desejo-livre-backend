@@ -48,8 +48,13 @@ jobs:
     - name: Copy .env
       run: php -r "file_exists('.env') || copy('.env.example', '.env');"
 
+    - name: Clear Composer Cache
+      run: composer clear-cache
+
     - name: Install Dependencies
-      run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+      run: |
+        composer install --no-interaction --prefer-dist --optimize-autoloader
+        composer dump-autoload --optimize
 
     - name: Generate key
       run: php artisan key:generate
@@ -75,7 +80,7 @@ jobs:
         QUEUE_CONNECTION: sync
 
     - name: Execute tests (Unit and Feature tests) via PHPUnit
-      run: vendor/bin/phpunit
+      run: vendor/bin/phpunit --verbose
       env:
         DB_CONNECTION: pgsql
         DB_HOST: 127.0.0.1
