@@ -22,6 +22,10 @@ class ReviewControllerTest extends TestCase
 
         // Desabilitar Scout completamente para os testes
         config(['scout.driver' => 'null']);
+
+        // Criar dados geográficos necessários
+        $this->state = State::factory()->create();
+        $this->city = City::factory()->create(['state_id' => $this->state->id]);
     }
 
     // ============================================================================

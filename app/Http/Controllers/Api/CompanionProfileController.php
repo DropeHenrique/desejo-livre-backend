@@ -170,7 +170,7 @@ class CompanionProfileController extends Controller
             'services.serviceType',
             'districts',
             'reviews' => function ($query) {
-                $query->where('approved', true)->latest()->limit(10);
+                $query->where('status', 'approved')->latest()->limit(10);
             }
         ])->where('slug', $slug)
           ->where('verified', true)
@@ -366,12 +366,13 @@ class CompanionProfileController extends Controller
             ], 409);
         }
 
-        $companion->reviews()->create([
+        Review::create([
             'user_id' => $user->id,
+            'companion_profile_id' => $companion->id,
             'rating' => $request->rating,
             'comment' => $request->comment,
             'is_anonymous' => $request->is_anonymous ?? false,
-            'approved' => false // Needs admin approval
+            'status' => 'pending' // Needs admin approval
         ]);
 
         return response()->json([
