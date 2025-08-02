@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: desejo-livre-app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    networks:
+      - desejo-livre-network
+    depends_on:
+      - db
+      - redis
+
+  nginx:
+    image: nginx:alpine
+    container_name: desejo-livre-nginx
+    restart: unless-stopped
+    ports:
+      - "8085:80"
+    volumes:
+      - ./:/var/www
+      - ./docker/nginx/:/etc/nginx/conf.d/
+    networks:
+      - desejo-livre-network
+
+  db:
+    image: postgres:15-alpine
+    container_name: desejo-livre-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: desejo_livre_db
+      POSTGRES_USER: desejo_livre_user
+      POSTGRES_PASSWORD: desejo_livre_password
+      PGDATA: /data/postgres
+    volumes:
+      - postgres-data:/data/postgres
+    ports:
+      - "5435:5432"
+    networks:
+      - desejo-livre-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: desejo-livre-redis
+    restart: unless-stopped
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - desejo-livre-network
+
+  horizon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: desejo-livre-horizon
+    restart: unless-stopped
+    command: php artisan horizon
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    networks:
+      - desejo-livre-network
+    depends_on:
+      - db
+      - redis
+
+networks:
+  desejo-livre-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
