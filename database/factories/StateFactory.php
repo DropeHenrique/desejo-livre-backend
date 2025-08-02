@@ -57,7 +57,8 @@ class StateFactory extends Factory
 
         $name = 'Estado ' . $counter;
         // Usar uma sequência numérica simples para UF quando não há mais estados brasileiros
-        $uf = 'ST' . str_pad($counter, 2, '0', STR_PAD_LEFT);
+        // Usar números que não conflitem com UFs reais (AC, AL, AP, etc.)
+        $uf = 'X' . ($counter - 26); // X1, X2, X3, ... (começa após os 27 estados brasileiros)
         $counter++;
         return [
             'name' => $name,
