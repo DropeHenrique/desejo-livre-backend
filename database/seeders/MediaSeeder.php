@@ -15,6 +15,9 @@ class MediaSeeder extends Seeder
      */
     public function run(): void
     {
+        // Desabilitar Scout temporariamente para evitar erros de indexação
+        config(['scout.driver' => 'null']);
+
         // Buscar acompanhantes existentes
         $companions = CompanionProfile::with('user')->get();
 

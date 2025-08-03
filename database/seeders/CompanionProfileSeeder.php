@@ -16,43 +16,46 @@ class CompanionProfileSeeder extends Seeder
      */
     public function run(): void
     {
-        // Buscar planos de acompanhante
-        $plans = Plan::where('user_type', 'companion')->get();
-
-        if ($plans->isEmpty()) {
-            $this->command->error('Nenhum plano de acompanhante encontrado. Execute o PlanSeeder primeiro.');
-            return;
-        }
-
-        // Buscar cidades existentes
-        $cities = City::all();
-
-        if ($cities->isEmpty()) {
-            $this->command->error('Nenhuma cidade encontrada. Execute o DatabaseSeeder primeiro.');
-            return;
-        }
+        // Desabilitar Scout temporariamente para evitar erros de indexação
+        config(['scout.driver' => 'null']);
 
         $this->command->info('Criando acompanhantes de exemplo...');
 
+        // Dados de exemplo
         $artisticNames = [
-            'Luna', 'Sofia', 'Isabella', 'Valentina', 'Camila', 'Gabriela',
-            'Nicole', 'Mariana', 'Beatriz', 'Amanda', 'Rafaela', 'Letícia',
-            'Fernanda', 'Juliana', 'Carolina', 'Larissa', 'Vanessa', 'Patrícia',
-            'Natália', 'Débora', 'Priscila', 'Mônica', 'Adriana', 'Cristina',
-            'Sabrina', 'Tatiana', 'Renata', 'Elaine', 'Simone', 'Luciana'
+            'Maria', 'Ana', 'Julia', 'Sofia', 'Isabella', 'Valentina', 'Gabriela', 'Laura',
+            'Manuela', 'Alice', 'Helena', 'Luiza', 'Lara', 'Beatriz', 'Antonella', 'Júlia',
+            'Maitê', 'Cecília', 'Eloá', 'Lívia', 'Giovanna', 'Sophie', 'Rafaela', 'Maria Clara',
+            'Catarina', 'Lorena', 'Yasmin', 'Isis', 'Elisa', 'Clara', 'Marina', 'Vitória',
+            'Emanuelly', 'Daniela', 'Fernanda', 'Amanda', 'Carolina', 'Rebeca', 'Raquel',
+            'Bianca', 'Vanessa', 'Priscila', 'Tatiana', 'Camila', 'Natália', 'Letícia',
+            'Bruna', 'Renata', 'Patrícia', 'Aline', 'Cristina', 'Mônica'
         ];
 
-        $eyeColors = ['castanhos', 'verdes', 'azuis', 'pretos', 'mel', 'amendoados'];
-        $hairColors = ['loiro', 'moreno', 'ruivo', 'preto', 'castanho', 'platinado'];
-        $ethnicities = ['branca', 'morena', 'negra', 'asiática', 'indígena', 'mulata'];
+        $eyeColors = ['castanhos', 'azuis', 'verdes', 'pretos', 'cinza', 'âmbar'];
+        $hairColors = ['loiro', 'moreno', 'ruivo', 'preto', 'castanho', 'grisalho'];
+        $ethnicities = ['branca', 'negra', 'parda', 'amarela', 'indígena', 'asiática'];
 
-        // Criar 50 acompanhantes distribuídos pelas cidades
+        // Buscar cidades e planos existentes
+        $cities = City::all();
+        $plans = Plan::where('user_type', 'companion')->get();
+
+        if ($cities->isEmpty()) {
+            $this->command->error('❌ Nenhuma cidade encontrada. Execute o LocationSeeder primeiro.');
+            return;
+        }
+
+        if ($plans->isEmpty()) {
+            $this->command->error('❌ Nenhum plano encontrado. Execute o PlanSeeder primeiro.');
+            return;
+        }
+
+        // Criar acompanhantes regulares
         for ($i = 0; $i < 50; $i++) {
             $city = $cities->random();
             $plan = $plans->random();
             $timestamp = time();
 
-            // Criar usuário para o acompanhante
             $user = User::create([
                 'name' => fake()->name(),
                 'email' => "companion{$i}_{$timestamp}@example.com",
