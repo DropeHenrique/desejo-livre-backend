@@ -16,6 +16,8 @@ use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\BlogController;
 use App\Http\Controllers\Api\BlogCategoryController;
 use App\Http\Controllers\Api\CepController;
+use App\Http\Controllers\Api\StatsController;
+use App\Http\Controllers\Api\SearchController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -72,6 +74,18 @@ Route::prefix('geography')->group(function () {
     Route::get('districts/by-city/{city}', [DistrictController::class, 'byCity']);
 });
 
+// Estados (rota direta para compatibilidade com testes)
+Route::prefix('states')->group(function () {
+    Route::get('/', [StateController::class, 'index']);
+    Route::get('{state}', [StateController::class, 'show']);
+    Route::get('{state}/cities', [StateController::class, 'cities']);
+});
+
+// Cidades (rota direta para compatibilidade com testes)
+Route::prefix('cities')->group(function () {
+    Route::get('{city}/districts', [CityController::class, 'districts']);
+});
+
 // Tipos de serviço
 Route::prefix('service-types')->group(function () {
     Route::get('/', [ServiceTypeController::class, 'index']);
@@ -90,7 +104,16 @@ Route::prefix('plans')->group(function () {
 // Perfis de acompanhantes (públicos)
 Route::prefix('companions')->group(function () {
     Route::get('/', [CompanionProfileController::class, 'index']);
+    Route::get('featured', [CompanionProfileController::class, 'featured']);
+    Route::get('city/{citySlug}', [CompanionProfileController::class, 'byCity']);
     Route::get('{companion:slug}', [CompanionProfileController::class, 'show']);
+
+    // Rotas para favoritos e reviews (autenticadas)
+    Route::middleware(['auth:sanctum'])->group(function () {
+        Route::post('{companion}/favorite', [FavoriteController::class, 'store']);
+        Route::delete('{companion}/favorite', [FavoriteController::class, 'destroy']);
+        Route::post('{companion}/review', [ReviewController::class, 'store']);
+    });
 });
 
 // Blog (público)
@@ -107,6 +130,18 @@ Route::prefix('blog')->group(function () {
     Route::get('categories/{category:slug}/posts', [BlogCategoryController::class, 'posts']);
 });
 
+// Estatísticas (público)
+Route::prefix('stats')->group(function () {
+    Route::get('general', [StatsController::class, 'general']);
+    Route::get('city/{citySlug}', [StatsController::class, 'city']);
+});
+
+// Busca (público)
+Route::prefix('search')->group(function () {
+    Route::get('cities', [SearchController::class, 'cities']);
+    Route::get('companions', [SearchController::class, 'companions']);
+});
+
 // ============================================================================
 // ROTAS AUTENTICADAS
 // ============================================================================
@@ -121,6 +156,19 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('deactivate', [UserController::class, 'deactivate']);
         Route::get('stats', [UserController::class, 'stats']);
         Route::post('logout', [AuthController::class, 'logout']);
+    });
+
+    // Logout global
+    Route::post('auth/logout', [AuthController::class, 'logout']);
+
+    // ============================================================================
+    // ROTAS ESPECÍFICAS PARA CLIENTES
+    // ============================================================================
+
+    Route::middleware(['user.type:client'])->group(function () {
+        Route::prefix('client')->group(function () {
+            Route::get('profile', [AuthController::class, 'profile']);
+        });
     });
 
     // Assinaturas
@@ -169,6 +217,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // Perfil da acompanhante
         Route::prefix('companion')->group(function () {
             Route::get('my-profile', [CompanionProfileController::class, 'myProfile']);
+            Route::get('profile', [CompanionProfileController::class, 'myProfile']); // Alias para compatibilidade
             Route::put('my-profile', [CompanionProfileController::class, 'updateMyProfile']);
             Route::post('online', [CompanionProfileController::class, 'setOnline']);
             Route::post('offline', [CompanionProfileController::class, 'setOffline']);
@@ -234,6 +283,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::post('{companion}/verify', [CompanionProfileController::class, 'verify']);
             Route::post('{companion}/reject', [CompanionProfileController::class, 'reject']);
         });
+
+        // Verificação de perfis (rota direta para compatibilidade com testes)
+        Route::post('companions/{companion}/verify', [CompanionProfileController::class, 'verify']);
 
         // Blog
         Route::prefix('blog')->group(function () {

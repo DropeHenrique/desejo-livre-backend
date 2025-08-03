@@ -123,4 +123,31 @@ class CityController extends Controller
             'data' => $cities
         ]);
     }
+
+    /**
+     * Listar distritos de uma cidade
+     */
+    public function districts($cityId, Request $request): JsonResponse
+    {
+        $city = City::findOrFail($cityId);
+        $query = $city->districts()->orderBy('name');
+        $perPage = $request->per_page ?? 50;
+        $districts = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => $districts->items(),
+            'meta' => [
+                'current_page' => $districts->currentPage(),
+                'per_page' => $districts->perPage(),
+                'total' => $districts->total(),
+                'last_page' => $districts->lastPage(),
+            ],
+            'links' => [
+                'first' => $districts->url(1),
+                'last' => $districts->url($districts->lastPage()),
+                'prev' => $districts->previousPageUrl(),
+                'next' => $districts->nextPageUrl(),
+            ]
+        ]);
+    }
 }

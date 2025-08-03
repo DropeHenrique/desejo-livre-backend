@@ -20,11 +20,20 @@ class DatabaseSeeder extends Seeder
         $this->call([
             StateSeeder::class,
             PlanSeeder::class,
+            ServiceTypeSeeder::class,
+            BlogSeeder::class, // Adicionando o BlogSeeder
         ]);
 
         // Criação de dados de exemplo (apenas em desenvolvimento)
         if (app()->environment('local', 'development')) {
             $this->createSampleData();
+
+            // Criar acompanhantes de exemplo
+            $this->call([
+                CompanionProfileSeeder::class,
+                CompanionDistrictSeeder::class,
+                CompanionServiceSeeder::class,
+            ]);
         }
     }
 

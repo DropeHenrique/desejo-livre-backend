@@ -51,7 +51,10 @@ class CompanionProfileControllerTest extends TestCase
                             'city' => ['id', 'name', 'state' => ['id', 'name', 'uf']]
                         ]
                     ],
-                    'current_page', 'per_page', 'total'
+                    'meta' => [
+                        'current_page', 'per_page', 'total', 'last_page'
+                    ],
+                    'links'
                 ]);
     }
 

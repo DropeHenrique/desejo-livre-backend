@@ -14,27 +14,16 @@ class StateController extends Controller
     /**
      * List all states
      */
-    public function index(Request $request): JsonResponse
+    public function index(Request $request)
     {
         $query = State::query();
-
-        // Search by name or UF
         if ($request->search) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('uf', 'like', "%{$search}%");
-            });
+            $query->where('name', 'like', "%{$request->search}%");
         }
-
-        // Filter by UF
         if ($request->uf) {
-            $query->where('uf', strtoupper($request->uf));
+            $query->where('uf', $request->uf);
         }
-
-        $states = $query->orderBy('name')
-                       ->paginate($request->per_page ?? 15);
-
+        $states = $query->orderBy('name')->paginate($request->per_page ?? 50);
         return response()->json([
             'data' => $states->items(),
             'meta' => [
@@ -42,6 +31,12 @@ class StateController extends Controller
                 'per_page' => $states->perPage(),
                 'total' => $states->total(),
                 'last_page' => $states->lastPage(),
+            ],
+            'links' => [
+                'first' => $states->url(1),
+                'last' => $states->url($states->lastPage()),
+                'prev' => $states->previousPageUrl(),
+                'next' => $states->nextPageUrl(),
             ]
         ]);
     }
@@ -62,16 +57,26 @@ class StateController extends Controller
     public function cities(Request $request, State $state): JsonResponse
     {
         $query = $state->cities();
-
         // Search by name
         if ($request->search) {
             $query->where('name', 'like', "%{$request->search}%");
         }
-
-        $cities = $query->orderBy('name')
-                       ->paginate($request->per_page ?? 50);
-
-        return response()->json($cities);
+        $cities = $query->orderBy('name')->paginate($request->per_page ?? 50);
+        return response()->json([
+            'data' => $cities->items(),
+            'meta' => [
+                'current_page' => $cities->currentPage(),
+                'per_page' => $cities->perPage(),
+                'total' => $cities->total(),
+                'last_page' => $cities->lastPage(),
+            ],
+            'links' => [
+                'first' => $cities->url(1),
+                'last' => $cities->url($cities->lastPage()),
+                'prev' => $cities->previousPageUrl(),
+                'next' => $cities->nextPageUrl(),
+            ]
+        ]);
     }
 
     /**

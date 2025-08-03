@@ -56,61 +56,46 @@ class CompanionProfileController extends Controller
      *   }
      * }
      */
-    public function index(Request $request): JsonResponse
+    public function index(Request $request)
     {
-        $query = CompanionProfile::with(['city.state', 'user'])
-                                ->where('verified', true);
+        $query = CompanionProfile::with(['city.state']);
 
-        // Search filters
-        if ($request->search) {
-            $query->where('artistic_name', 'like', "%{$request->search}%");
-        }
-
-        if ($request->city_id) {
+        // Filtros
+        if ($request->has('city_id')) {
             $query->where('city_id', $request->city_id);
         }
-
-        if ($request->verified) {
+        if ($request->has('verified')) {
             $query->where('verified', $request->verified);
         }
-
-        if ($request->online) {
+        if ($request->has('online')) {
             $query->where('online_status', $request->online);
         }
-
-        if ($request->age_min) {
+        if ($request->has('search')) {
+            $query->where('artistic_name', 'like', "%{$request->search}%");
+        }
+        if ($request->has('age_min')) {
             $query->where('age', '>=', $request->age_min);
         }
-
-        if ($request->age_max) {
+        if ($request->has('age_max')) {
             $query->where('age', '<=', $request->age_max);
         }
 
-        if ($request->eye_color) {
-            $query->where('eye_color', $request->eye_color);
-        }
-
-        if ($request->hair_color) {
-            $query->where('hair_color', $request->hair_color);
-        }
-
-        if ($request->ethnicity) {
-            $query->where('ethnicity', $request->ethnicity);
-        }
-
-        // Sorting
-        $sortBy = $request->sort_by ?? 'created_at';
-        $sortOrder = $request->sort_order ?? 'desc';
-
-        if ($sortBy === 'random') {
-            $query->inRandomOrder();
-        } else {
-            $query->orderBy($sortBy, $sortOrder);
-        }
-
-        $profiles = $query->paginate($request->per_page ?? 15);
-
-        return response()->json($profiles);
+        $companions = $query->orderBy('id', 'desc')->paginate($request->per_page ?? 15);
+        return response()->json([
+            'data' => $companions->items(),
+            'meta' => [
+                'current_page' => $companions->currentPage(),
+                'per_page' => $companions->perPage(),
+                'total' => $companions->total(),
+                'last_page' => $companions->lastPage(),
+            ],
+            'links' => [
+                'first' => $companions->url(1),
+                'last' => $companions->url($companions->lastPage()),
+                'prev' => $companions->previousPageUrl(),
+                'next' => $companions->nextPageUrl(),
+            ]
+        ]);
     }
 
     /**
@@ -169,6 +154,7 @@ class CompanionProfileController extends Controller
             'user',
             'services.serviceType',
             'districts',
+            'media', // Adicionando relacionamento com mídia
             'reviews' => function ($query) {
                 $query->where('status', 'approved')->latest()->limit(10);
             }
@@ -197,6 +183,7 @@ class CompanionProfileController extends Controller
                 'city' => $profile->city,
                 'services' => $profile->services,
                 'districts' => $profile->districts,
+                'media' => $profile->media, // Incluindo dados de mídia
                 'reviews' => $profile->reviews,
                 'average_rating' => $profile->averageRating(),
                 'total_reviews' => $profile->totalReviews(),
@@ -304,9 +291,10 @@ class CompanionProfileController extends Controller
     public function addFavorite(Request $request, CompanionProfile $companion): JsonResponse
     {
         $user = $request->user();
+        $companionProfileId = $request->input('companion_profile_id', $companion->id);
 
         // Check if already favorited
-        $existing = $user->favorites()->where('companion_profile_id', $companion->id)->first();
+        $existing = $user->favorites()->where('companion_profile_id', $companionProfileId)->first();
 
         if ($existing) {
             return response()->json([
@@ -315,7 +303,7 @@ class CompanionProfileController extends Controller
         }
 
         $user->favorites()->create([
-            'companion_profile_id' => $companion->id
+            'companion_profile_id' => $companionProfileId
         ]);
 
         return response()->json([
@@ -329,8 +317,9 @@ class CompanionProfileController extends Controller
     public function removeFavorite(Request $request, CompanionProfile $companion): JsonResponse
     {
         $user = $request->user();
+        $companionProfileId = $request->input('companion_profile_id', $companion->id);
 
-        $user->favorites()->where('companion_profile_id', $companion->id)->delete();
+        $user->favorites()->where('companion_profile_id', $companionProfileId)->delete();
 
         return response()->json([
             'message' => 'Removed from favorites'
@@ -356,6 +345,7 @@ class CompanionProfileController extends Controller
         }
 
         $user = $request->user();
+        $companionProfileId = $request->input('companion_profile_id', $companion->id);
 
         // Check if user already reviewed this companion
         $existing = $companion->reviews()->where('user_id', $user->id)->first();
@@ -368,7 +358,7 @@ class CompanionProfileController extends Controller
 
         Review::create([
             'user_id' => $user->id,
-            'companion_profile_id' => $companion->id,
+            'companion_profile_id' => $companionProfileId,
             'rating' => $request->rating,
             'comment' => $request->comment,
             'is_anonymous' => $request->is_anonymous ?? false,
@@ -466,4 +456,133 @@ class CompanionProfileController extends Controller
             'message' => 'Profile rejected'
         ]);
     }
+
+    /**
+     * Listar acompanhantes em destaque
+     */
+    public function featured(Request $request): JsonResponse
+    {
+        try {
+            $limit = $request->get('limit', 6);
+
+            $companions = CompanionProfile::with(['city.state', 'media', 'reviews'])
+                ->where('verified', true)
+                ->where('online_status', true)
+                ->orderBy('created_at', 'desc')
+                ->limit($limit)
+                ->get();
+
+            return response()->json([
+                'data' => $companions,
+                'message' => 'Acompanhantes em destaque carregadas com sucesso'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Erro ao carregar acompanhantes em destaque',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Listar acompanhantes por cidade
+     */
+    public function byCity(Request $request, string $citySlug): JsonResponse
+    {
+        try {
+            $page = $request->get('page', 1);
+            $perPage = $request->get('per_page', 12);
+            $sort = $request->get('sort', 'created_at');
+
+            $city = \App\Models\City::where('slug', $citySlug)->first();
+
+            if (!$city) {
+                return response()->json([
+                    'message' => 'Cidade não encontrada'
+                ], 404);
+            }
+
+            $query = CompanionProfile::with(['city.state', 'media', 'reviews'])
+                ->where('city_id', $city->id)
+                ->where('verified', true);
+
+            // Aplicar ordenação
+            switch ($sort) {
+                case 'newest':
+                    $query->orderBy('created_at', 'desc');
+                    break;
+                case 'oldest':
+                    $query->orderBy('created_at', 'asc');
+                    break;
+                case 'rating':
+                    $query->orderBy('average_rating', 'desc');
+                    break;
+                default:
+                    $query->orderBy('created_at', 'desc');
+            }
+
+            $companions = $query->paginate($perPage, ['*'], 'page', $page);
+
+            return response()->json([
+                'data' => $companions->items(),
+                'current_page' => $companions->currentPage(),
+                'last_page' => $companions->lastPage(),
+                'per_page' => $companions->perPage(),
+                'total' => $companions->total(),
+                'from' => $companions->firstItem(),
+                'to' => $companions->lastItem(),
+                'message' => 'Acompanhantes da cidade carregadas com sucesso'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Erro ao carregar acompanhantes da cidade',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Exibir perfil de uma acompanhante específica
+     *
+     * @group Acompanhantes
+     * @urlParam slug string required Slug da acompanhante. Example: maria-silva
+     * @response 200 {
+     *   "data": {
+     *     "id": 1,
+     *     "artistic_name": "Maria Silva",
+     *     "slug": "maria-silva",
+     *     "age": 25,
+     *     "about_me": "Descrição da acompanhante...",
+     *     "verified": true,
+     *     "online_status": true,
+     *     "city": {
+     *       "id": 1,
+     *       "name": "São Paulo",
+     *       "state": {
+     *         "id": 1,
+     *         "name": "São Paulo",
+     *         "uf": "SP"
+     *       }
+     *     },
+     *     "media": [
+     *       {
+     *         "id": 1,
+     *         "file_path": "photos/maria-silva-1.jpg",
+     *         "file_type": "photo",
+     *         "is_primary": true
+     *       }
+     *     ],
+     *     "reviews": [
+     *       {
+     *         "id": 1,
+     *         "rating": 5,
+     *         "comment": "Excelente atendimento!",
+     *         "user": {
+     *           "name": "João Silva"
+     *         }
+     *       }
+     *     ]
+     *   }
+     * }
+     */
 }

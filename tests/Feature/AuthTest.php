@@ -2,17 +2,18 @@
 
 namespace Tests\Feature;
 
+use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\Hash;
-use Tests\TestCase;
 
 class AuthTest extends TestCase
 {
     use RefreshDatabase, WithFaker;
 
-    /** @test */
+    #[Test]
     public function can_register_client()
     {
         $userData = [
@@ -37,7 +38,7 @@ class AuthTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function can_register_companion()
     {
         $userData = [
@@ -62,7 +63,7 @@ class AuthTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function can_login_with_valid_credentials()
     {
         $user = User::factory()->create([
@@ -83,10 +84,10 @@ class AuthTest extends TestCase
                 ]);
     }
 
-    /** @test */
+    #[Test]
     public function cannot_login_with_invalid_credentials()
     {
-        $user = User::factory()->create([
+        User::factory()->create([
             'email' => 'test@example.com',
             'password' => Hash::make('password123')
         ]);
@@ -97,10 +98,10 @@ class AuthTest extends TestCase
         ]);
 
         $response->assertStatus(401)
-                ->assertJson(['message' => 'Invalid credentials']);
+                ->assertJson(['message' => 'Credenciais inválidas']);
     }
 
-    /** @test */
+    #[Test]
     public function client_can_access_protected_routes()
     {
         $user = User::factory()->create(['user_type' => 'client']);
@@ -113,10 +114,33 @@ class AuthTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function companion_can_access_protected_routes()
     {
         $user = User::factory()->create(['user_type' => 'companion']);
+
+        // Criar dados necessários se não existirem
+        $state = \App\Models\State::first();
+        if (!$state) {
+            $state = \App\Models\State::factory()->create();
+        }
+
+        $city = \App\Models\City::first();
+        if (!$city) {
+            $city = \App\Models\City::factory()->create(['state_id' => $state->id]);
+        }
+
+        $plan = \App\Models\Plan::where('user_type', 'companion')->first();
+        if (!$plan) {
+            $plan = \App\Models\Plan::factory()->create(['user_type' => 'companion']);
+        }
+
+        \App\Models\CompanionProfile::factory()->create([
+            'user_id' => $user->id,
+            'city_id' => $city->id,
+            'plan_id' => $plan->id,
+        ]);
+
         $token = $user->createToken('auth-token', ['companion'])->plainTextToken;
 
         $response = $this->withHeaders([
@@ -126,7 +150,7 @@ class AuthTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function admin_can_access_protected_routes()
     {
         $user = User::factory()->create(['user_type' => 'admin']);
@@ -139,7 +163,7 @@ class AuthTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function user_cannot_access_routes_without_proper_permissions()
     {
         $user = User::factory()->create(['user_type' => 'client']);
@@ -150,10 +174,10 @@ class AuthTest extends TestCase
             'Authorization' => 'Bearer ' . $token,
         ])->getJson('/api/companion/my-profile');
 
-        $response->assertStatus(401);
+        $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function can_logout()
     {
         $user = User::factory()->create();
@@ -167,7 +191,7 @@ class AuthTest extends TestCase
                 ->assertJson(['message' => 'Logged out successfully']);
     }
 
-    /** @test */
+    #[Test]
     public function registration_requires_valid_email()
     {
         $userData = [
@@ -183,7 +207,7 @@ class AuthTest extends TestCase
                 ->assertJsonValidationErrors(['email']);
     }
 
-    /** @test */
+    #[Test]
     public function registration_requires_password_confirmation()
     {
         $userData = [

@@ -6,8 +6,8 @@ use App\Models\ServiceType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
-use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class ServiceTypeControllerTest extends TestCase
 {

@@ -10,6 +10,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Intervention\Image\Facades\Image;
+use FFMpeg\FFMpeg;
+use FFMpeg\Coordinate\TimeCode;
 
 class MediaController extends Controller
 {
@@ -20,28 +23,49 @@ class MediaController extends Controller
     {
         $this->authorize('view', $companionProfile);
 
-        $query = $companionProfile->media();
+        $query = $companionProfile->media()->ordered();
 
-        if ($request->type) {
-            $query->where('file_type', $request->type);
+        // Filtrar por tipo
+        if ($request->has('type')) {
+            $type = $request->get('type');
+            if (in_array($type, ['photo', 'video'])) {
+                $query->where('file_type', $type);
+            }
         }
 
-        if ($request->primary) {
-            $query->where('is_primary', $request->primary);
+        // Filtrar por status
+        if ($request->has('status')) {
+            $status = $request->get('status');
+            switch ($status) {
+                case 'approved':
+                    $query->approved();
+                    break;
+                case 'pending':
+                    $query->where('is_approved', false);
+                    break;
+                case 'verified':
+                    $query->verified();
+                    break;
+            }
         }
 
-        $media = $query->orderBy('is_primary', 'desc')
-                      ->orderBy('created_at', 'desc')
-                      ->paginate($request->per_page ?? 20);
+        // Se não for o dono do perfil, mostrar apenas mídia pública
+        if (!auth()->user() || auth()->user()->id !== $companionProfile->user_id) {
+            $query->public();
+        }
+
+        $media = $query->paginate($request->get('per_page', 12));
 
         return response()->json([
+            'success' => true,
             'data' => $media->items(),
             'meta' => [
                 'current_page' => $media->currentPage(),
                 'per_page' => $media->perPage(),
                 'total' => $media->total(),
                 'last_page' => $media->lastPage(),
-            ]
+            ],
+            'message' => 'Mídia listada com sucesso'
         ]);
     }
 
@@ -52,8 +76,20 @@ class MediaController extends Controller
     {
         $this->authorize('view', $media->companionProfile);
 
+        // Verificar se a mídia é pública para usuários não-autorizados
+        if (!auth()->user() || auth()->user()->id !== $media->companionProfile->user_id) {
+            if (!$media->isPublic()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Mídia não disponível'
+                ], 403);
+            }
+        }
+
         return response()->json([
-            'data' => $media
+            'success' => true,
+            'data' => $media,
+            'message' => 'Detalhes da mídia'
         ]);
     }
 
@@ -65,44 +101,59 @@ class MediaController extends Controller
         $this->authorize('update', $companionProfile);
 
         $validator = Validator::make($request->all(), [
-            'file' => 'required|file|mimes:jpeg,png,jpg,webp,mp4,webm|max:10240', // 10MB max
+            'file' => 'required|file|max:102400', // 100MB max
+            'file_type' => 'required|in:photo,video',
+            'description' => 'nullable|string|max:500',
             'is_primary' => 'boolean',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
+                'success' => false,
                 'message' => 'Dados inválidos',
                 'errors' => $validator->errors()
             ], 422);
         }
 
         $file = $request->file('file');
-        $fileType = $this->getFileType($file->getMimeType());
-        $fileName = Str::random(40) . '.' . $file->getClientOriginalExtension();
-        $filePath = 'companions/' . $companionProfile->id . '/' . $fileType . 's/' . $fileName;
+        $fileType = $request->get('file_type');
 
-        // Upload do arquivo
-        $file->storeAs('public/' . dirname($filePath), $fileName);
-
-        // Criar registro no banco
-        $media = Media::create([
-            'companion_profile_id' => $companionProfile->id,
-            'file_name' => $file->getClientOriginalName(),
-            'file_path' => $filePath,
-            'file_type' => $fileType,
-            'file_size' => $file->getSize(),
-            'is_primary' => $request->is_primary ?? false,
-        ]);
-
-        // Se for marcado como primário, remover primário dos outros
-        if ($media->is_primary) {
-            $media->setAsPrimary();
+        // Validações específicas por tipo
+        if ($fileType === 'photo') {
+            $photoValidator = Validator::make($request->all(), Media::getPhotoValidationRules());
+            if ($photoValidator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Arquivo de imagem inválido',
+                    'errors' => $photoValidator->errors()
+                ], 422);
+            }
+        } else {
+            $videoValidator = Validator::make($request->all(), Media::getVideoValidationRules());
+            if ($videoValidator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Arquivo de vídeo inválido',
+                    'errors' => $videoValidator->errors()
+                ], 422);
+            }
         }
 
-        return response()->json([
-            'message' => 'Mídia enviada com sucesso',
-            'data' => $media
-        ], 201);
+        try {
+            $media = $this->processFileUpload($file, $companionProfile, $fileType, $request);
+
+            return response()->json([
+                'success' => true,
+                'data' => $media,
+                'message' => 'Mídia enviada com sucesso'
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao processar arquivo: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -113,23 +164,38 @@ class MediaController extends Controller
         $this->authorize('update', $media->companionProfile);
 
         $validator = Validator::make($request->all(), [
+            'description' => 'nullable|string|max:500',
             'is_primary' => 'boolean',
+            'order' => 'integer|min:1',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
+                'success' => false,
                 'message' => 'Dados inválidos',
                 'errors' => $validator->errors()
             ], 422);
         }
 
-        if ($request->has('is_primary') && $request->is_primary) {
+        // Atualizar descrição
+        if ($request->has('description')) {
+            $media->update(['description' => $request->get('description')]);
+        }
+
+        // Definir como primária
+        if ($request->get('is_primary', false)) {
             $media->setAsPrimary();
         }
 
+        // Reordenar
+        if ($request->has('order')) {
+            $media->moveToPosition($request->get('order'));
+        }
+
         return response()->json([
-            'message' => 'Mídia atualizada com sucesso',
-            'data' => $media->fresh()
+            'success' => true,
+            'data' => $media->fresh(),
+            'message' => 'Mídia atualizada com sucesso'
         ]);
     }
 
@@ -140,22 +206,18 @@ class MediaController extends Controller
     {
         $this->authorize('update', $media->companionProfile);
 
-        // Excluir arquivo do storage
-        if (Storage::disk('public')->exists($media->file_path)) {
-            Storage::disk('public')->delete($media->file_path);
-        }
-
-        // Excluir thumbnail se existir
-        if ($media->isPhoto()) {
-            $thumbnailPath = $this->getThumbnailPath($media->file_path);
-            if (Storage::disk('public')->exists($thumbnailPath)) {
-                Storage::disk('public')->delete($thumbnailPath);
-            }
+        // Não permitir excluir a foto primária se for a única
+        if ($media->is_primary && $media->companionProfile->media()->count() === 1) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Não é possível excluir a única foto do perfil'
+            ], 422);
         }
 
         $media->delete();
 
         return response()->json([
+            'success' => true,
             'message' => 'Mídia excluída com sucesso'
         ]);
     }
@@ -170,8 +232,9 @@ class MediaController extends Controller
         $media->setAsPrimary();
 
         return response()->json([
-            'message' => 'Mídia definida como primária',
-            'data' => $media->fresh()
+            'success' => true,
+            'data' => $media->fresh(),
+            'message' => 'Mídia definida como primária'
         ]);
     }
 
@@ -184,24 +247,29 @@ class MediaController extends Controller
 
         $validator = Validator::make($request->all(), [
             'media_ids' => 'required|array',
-            'media_ids.*' => 'exists:media,id',
+            'media_ids.*' => 'integer|exists:media,id'
         ]);
 
         if ($validator->fails()) {
             return response()->json([
+                'success' => false,
                 'message' => 'Dados inválidos',
                 'errors' => $validator->errors()
             ], 422);
         }
 
-        foreach ($request->media_ids as $index => $mediaId) {
-            Media::where('id', $mediaId)
-                 ->where('companion_profile_id', $companionProfile->id)
-                 ->update(['order' => $index + 1]);
+        $mediaIds = $request->get('media_ids');
+
+        foreach ($mediaIds as $index => $mediaId) {
+            $media = $companionProfile->media()->find($mediaId);
+            if ($media) {
+                $media->update(['order' => $index + 1]);
+            }
         }
 
         return response()->json([
-            'message' => 'Mídia reordenada com sucesso'
+            'success' => true,
+            'message' => 'Ordem da mídia atualizada'
         ]);
     }
 
@@ -214,40 +282,160 @@ class MediaController extends Controller
 
         if (!$media->isPhoto()) {
             return response()->json([
+                'success' => false,
                 'message' => 'Apenas fotos podem ter thumbnails'
             ], 422);
         }
 
-        // Aqui você implementaria a geração de thumbnail
-        // Por exemplo, usando Intervention Image
+        try {
+            $this->processImageThumbnail($media);
 
-        return response()->json([
-            'message' => 'Thumbnail gerado com sucesso'
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Thumbnail gerado com sucesso'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao gerar thumbnail: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
-     * Determinar tipo de arquivo
+     * Processar upload de arquivo
      */
-    private function getFileType(string $mimeType): string
+    private function processFileUpload($file, $companionProfile, $fileType, $request): Media
     {
-        if (Str::startsWith($mimeType, 'image/')) {
-            return 'photo';
+        $fileName = Str::random(40) . '.' . $file->getClientOriginalExtension();
+        $filePath = 'companions/' . $companionProfile->id . '/' . $fileType . 's/' . $fileName;
+
+        // Salvar arquivo
+        Storage::disk('public')->put($filePath, file_get_contents($file));
+
+        // Obter informações do arquivo
+        $fileSize = $file->getSize();
+        $mimeType = $file->getMimeType();
+
+        $mediaData = [
+            'companion_profile_id' => $companionProfile->id,
+            'file_name' => $file->getClientOriginalName(),
+            'file_path' => $filePath,
+            'file_type' => $fileType,
+            'file_size' => $fileSize,
+            'mime_type' => $mimeType,
+            'description' => $request->get('description'),
+            'is_approved' => true, // Por padrão aprovado, pode ser alterado por admin
+            'is_verified' => false, // Precisa ser verificado por admin
+        ];
+
+        // Processar imagem
+        if ($fileType === 'photo') {
+            $mediaData = array_merge($mediaData, $this->processImage($file, $filePath));
         }
 
-        if (Str::startsWith($mimeType, 'video/')) {
-            return 'video';
+        // Processar vídeo
+        if ($fileType === 'video') {
+            $mediaData = array_merge($mediaData, $this->processVideo($file, $filePath));
         }
 
-        return 'photo'; // fallback
+        $media = Media::create($mediaData);
+
+        // Definir como primária se solicitado
+        if ($request->get('is_primary', false)) {
+            $media->setAsPrimary();
+        }
+
+        return $media;
     }
 
     /**
-     * Obter caminho do thumbnail
+     * Processar imagem
      */
-    private function getThumbnailPath(string $filePath): string
+    private function processImage($file, $filePath): array
     {
+        $image = Image::make($file);
+        $width = $image->width();
+        $height = $image->height();
+
+        // Criar thumbnail
+        $thumbnail = $image->resize(300, 300, function ($constraint) {
+            $constraint->aspectRatio();
+            $constraint->upsize();
+        });
+
         $pathInfo = pathinfo($filePath);
-        return $pathInfo['dirname'] . '/thumbnails/' . $pathInfo['basename'];
+        $thumbnailPath = $pathInfo['dirname'] . '/thumbnails/' . $pathInfo['basename'];
+
+        Storage::disk('public')->put($thumbnailPath, $thumbnail->encode());
+
+        return [
+            'width' => $width,
+            'height' => $height,
+        ];
+    }
+
+    /**
+     * Processar vídeo
+     */
+    private function processVideo($file, $filePath): array
+    {
+        $data = [
+            'width' => null,
+            'height' => null,
+            'duration' => null,
+        ];
+
+        try {
+            // Usar FFmpeg para obter informações do vídeo
+            $ffmpeg = FFMpeg::create([
+                'ffmpeg.binaries' => '/usr/bin/ffmpeg',
+                'ffprobe.binaries' => '/usr/bin/ffprobe',
+            ]);
+
+            $video = $ffmpeg->open(Storage::disk('public')->path($filePath));
+            $stream = $video->getStreams()->first();
+
+            if ($stream) {
+                $data['width'] = $stream->get('width');
+                $data['height'] = $stream->get('height');
+                $data['duration'] = (int) $stream->get('duration');
+
+                // Gerar thumbnail do vídeo
+                $frame = $video->frame(TimeCode::fromSeconds(1));
+                $pathInfo = pathinfo($filePath);
+                $thumbnailPath = $pathInfo['dirname'] . '/thumbnails/' . $pathInfo['filename'] . '.jpg';
+
+                $frame->save(Storage::disk('public')->path($thumbnailPath));
+            }
+        } catch (\Exception $e) {
+            // Log error but don't fail the upload
+            \Log::warning('Erro ao processar vídeo: ' . $e->getMessage());
+        }
+
+        return $data;
+    }
+
+    /**
+     * Processar thumbnail de imagem existente
+     */
+    private function processImageThumbnail(Media $media): void
+    {
+        if (!Storage::disk('public')->exists($media->file_path)) {
+            throw new \Exception('Arquivo original não encontrado');
+        }
+
+        $image = Image::make(Storage::disk('public')->path($media->file_path));
+
+        // Criar thumbnail
+        $thumbnail = $image->resize(300, 300, function ($constraint) {
+            $constraint->aspectRatio();
+            $constraint->upsize();
+        });
+
+        $pathInfo = pathinfo($media->file_path);
+        $thumbnailPath = $pathInfo['dirname'] . '/thumbnails/' . $pathInfo['basename'];
+
+        Storage::disk('public')->put($thumbnailPath, $thumbnail->encode());
     }
 }
