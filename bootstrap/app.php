@@ -14,6 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'user.type' => \App\Http\Middleware\CheckUserType::class,
+            'plan.limitations' => \App\Http\Middleware\CheckPlanLimitations::class,
+            'admin' => \App\Http\Middleware\AdminMiddleware::class,
+            'auth.api' => \App\Http\Middleware\ApiAuthenticate::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

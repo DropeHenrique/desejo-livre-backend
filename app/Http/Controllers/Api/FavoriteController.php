@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Favorite;
 use App\Models\CompanionProfile;
+use App\Helpers\PlanLimitationsHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
@@ -52,6 +53,13 @@ class FavoriteController extends Controller
 
         $user = $request->user();
         $companionProfile = CompanionProfile::findOrFail($request->companion_profile_id);
+
+        // Verificar limitações do plano
+        $currentFavoritesCount = $user->favorites()->count();
+        $limitCheck = PlanLimitationsHelper::checkLimitOrFail($user, 'favorites_limit', $currentFavoritesCount);
+        if ($limitCheck) {
+            return $limitCheck;
+        }
 
         // Verificar se já está nos favoritos
         $existingFavorite = Favorite::where('user_id', $user->id)

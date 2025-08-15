@@ -61,8 +61,18 @@ class CompanionProfileController extends Controller
         $query = CompanionProfile::with(['city.state']);
 
         // Filtros
+        if ($request->has('state_id')) {
+            $query->whereHas('city', function ($cityQuery) use ($request) {
+                $cityQuery->where('state_id', $request->state_id);
+            });
+        }
         if ($request->has('city_id')) {
             $query->where('city_id', $request->city_id);
+        }
+        if ($request->has('district_id')) {
+            $query->whereHas('districts', function ($districtQuery) use ($request) {
+                $districtQuery->where('district_id', $request->district_id);
+            });
         }
         if ($request->has('verified')) {
             $query->where('verified', $request->verified);
@@ -79,8 +89,60 @@ class CompanionProfileController extends Controller
         if ($request->has('age_max')) {
             $query->where('age', '<=', $request->age_max);
         }
+        if ($request->has('eye_color')) {
+            $query->where('eye_color', $request->eye_color);
+        }
+        if ($request->has('hair_color')) {
+            $query->where('hair_color', $request->hair_color);
+        }
+        if ($request->has('ethnicity')) {
+            $query->where('ethnicity', $request->ethnicity);
+        }
+        if ($request->has('user_type')) {
+            $query->whereHas('user', function ($userQuery) use ($request) {
+                $userQuery->where('user_type', $request->user_type);
+            });
+        }
+        if ($request->has('height_min')) {
+            $query->where('height', '>=', $request->height_min);
+        }
+        if ($request->has('height_max')) {
+            $query->where('height', '<=', $request->height_max);
+        }
+        if ($request->has('weight_min')) {
+            $query->where('weight', '>=', $request->weight_min);
+        }
+        if ($request->has('weight_max')) {
+            $query->where('weight', '<=', $request->weight_max);
+        }
 
-        $companions = $query->orderBy('id', 'desc')->paginate($request->per_page ?? 15);
+        // Ordenação
+        $sortBy = $request->get('sort_by', 'newest');
+        switch ($sortBy) {
+            case 'newest':
+                $query->orderBy('created_at', 'desc');
+                break;
+            case 'oldest':
+                $query->orderBy('created_at', 'asc');
+                break;
+            case 'rating':
+                $query->orderBy('average_rating', 'desc');
+                break;
+            case 'price_low':
+                $query->with(['services' => function ($serviceQuery) {
+                    $serviceQuery->orderBy('price', 'asc');
+                }]);
+                break;
+            case 'price_high':
+                $query->with(['services' => function ($serviceQuery) {
+                    $serviceQuery->orderBy('price', 'desc');
+                }]);
+                break;
+            default:
+                $query->orderBy('id', 'desc');
+        }
+
+        $companions = $query->paginate($request->per_page ?? 15);
         return response()->json([
             'data' => $companions->items(),
             'meta' => [
@@ -165,6 +227,7 @@ class CompanionProfileController extends Controller
         return response()->json([
             'data' => [
                 'id' => $profile->id,
+                'user_id' => $profile->user_id,
                 'artistic_name' => $profile->artistic_name,
                 'slug' => $profile->slug,
                 'age' => $profile->hide_age ? null : $profile->age,
@@ -234,6 +297,18 @@ class CompanionProfileController extends Controller
             'city_id' => 'nullable|exists:cities,id',
             'whatsapp' => 'nullable|string|max:20',
             'telegram' => 'nullable|string|max:50',
+            // Deslocamento
+            'attends_home' => 'nullable|boolean',
+            'travel_radius_km' => 'nullable|integer|min:0',
+            // Bairros atendidos
+            'district_ids' => 'nullable|array',
+            'district_ids.*' => 'integer|exists:districts,id',
+            // Serviços
+            'services' => 'nullable|array',
+            'services.*.service_type_id' => 'required_with:services|integer|exists:service_types,id',
+            'services.*.price' => 'nullable|numeric|min:0',
+            'services.*.unit_minutes' => 'nullable|integer|in:30,45,60,90,120',
+            'services.*.description' => 'nullable|string|max:1000',
         ]);
 
         if ($validator->fails()) {
@@ -243,15 +318,77 @@ class CompanionProfileController extends Controller
             ], 422);
         }
 
-        $profile->update($request->only([
+        // Normalizar aliases
+        $attendsHome = $request->boolean('attends_home')
+            || $request->boolean('home_service')
+            || ($request->has('domicilio') ? filter_var($request->input('domicilio'), FILTER_VALIDATE_BOOLEAN) : false)
+            || ($request->has('attendsHome') ? filter_var($request->input('attendsHome'), FILTER_VALIDATE_BOOLEAN) : false);
+
+        $travelRadius = $request->input('travel_radius_km', $request->input('travel_radius', $request->input('radius_km', $request->input('service_radius_km'))));
+        $travelRadius = ($travelRadius === '' || $travelRadius === null) ? null : (int) $travelRadius;
+
+        $updateData = $request->only([
             'artistic_name', 'age', 'hide_age', 'about_me', 'height', 'weight',
             'eye_color', 'hair_color', 'ethnicity', 'has_tattoos', 'has_piercings',
             'has_silicone', 'is_smoker', 'city_id', 'whatsapp', 'telegram'
-        ]));
+        ]);
+        // Adicionar deslocamento se presentes
+        if ($request->hasAny(['attends_home', 'home_service', 'domicilio', 'attendsHome'])) {
+            $updateData['attends_home'] = $attendsHome;
+        }
+        if ($request->hasAny(['travel_radius_km', 'travel_radius', 'radius_km', 'service_radius_km'])) {
+            $updateData['travel_radius_km'] = $travelRadius;
+        }
+
+        $profile->update($updateData);
+
+        // Sincronizar serviços, se fornecidos
+        if ($request->has('services')) {
+            $services = $request->input('services', []);
+
+            // Mapear por service_type_id para facilitar upsert
+            $serviceTypeIds = [];
+            foreach ($services as $service) {
+                $serviceTypeId = (int) $service['service_type_id'];
+                $serviceTypeIds[] = $serviceTypeId;
+                $profile->services()->updateOrCreate(
+                    ['service_type_id' => $serviceTypeId],
+                    [
+                        'price' => $service['price'] ?? null,
+                        'unit_minutes' => $service['unit_minutes'] ?? 60,
+                        'description' => $service['description'] ?? null,
+                    ]
+                );
+            }
+
+            // Remover serviços que não foram enviados agora
+            if (count($serviceTypeIds) > 0) {
+                $profile->services()
+                    ->whereNotIn('service_type_id', $serviceTypeIds)
+                    ->delete();
+            } else {
+                // Caso lista vazia, remover todos
+                $profile->services()->delete();
+            }
+        }
+
+        // Sincronizar bairros atendidos, se enviados
+        if ($request->hasAny(['district_ids', 'districts'])) {
+            $districtIds = $request->input('district_ids');
+            if (!$districtIds && is_array($request->input('districts'))) {
+                $districtsPayload = $request->input('districts');
+                // Pode vir como array de ids ou objetos
+                $districtIds = array_map(function ($d) {
+                    return is_array($d) && isset($d['id']) ? (int) $d['id'] : (int) $d;
+                }, $districtsPayload);
+            }
+            $districtIds = array_values(array_filter(array_map('intval', (array) $districtIds)));
+            $profile->districts()->sync($districtIds);
+        }
 
         return response()->json([
             'message' => 'Profile updated successfully',
-            'data' => $profile->fresh()
+            'data' => $profile->fresh()->load(['services.serviceType', 'districts'])
         ]);
     }
 
@@ -585,4 +722,69 @@ class CompanionProfileController extends Controller
      *   }
      * }
      */
+
+    /**
+     * Get companion weekly availability
+     */
+    public function myAvailability(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $profile = $user->companionProfile()->firstOrFail();
+
+        $availabilities = $profile->availabilities()
+            ->orderBy('day_of_week')
+            ->get();
+
+        return response()->json([
+            'data' => $availabilities,
+        ]);
+    }
+
+    /**
+     * Update companion weekly availability
+     */
+    public function updateAvailability(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $profile = $user->companionProfile()->firstOrFail();
+
+        $validator = Validator::make($request->all(), [
+            'availability' => 'required|array',
+            'availability.*.day_of_week' => 'required|integer|min:0|max:6',
+            'availability.*.start_time' => 'required|date_format:H:i',
+            'availability.*.end_time' => 'required|date_format:H:i|after:availability.*.start_time',
+            'availability.*.enabled' => 'boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $availability = collect($request->input('availability', []))
+            ->map(function ($slot) {
+                return [
+                    'day_of_week' => (int) $slot['day_of_week'],
+                    'start_time' => $slot['start_time'],
+                    'end_time' => $slot['end_time'],
+                    'enabled' => (bool) ($slot['enabled'] ?? true),
+                ];
+            })
+            ->filter(fn ($slot) => $slot['enabled'] === true)
+            ->values();
+
+        \DB::transaction(function () use ($profile, $availability) {
+            $profile->availabilities()->delete();
+            foreach ($availability as $slot) {
+                $profile->availabilities()->create($slot);
+            }
+        });
+
+        return response()->json([
+            'message' => 'Availability updated successfully',
+            'data' => $profile->availabilities()->orderBy('day_of_week')->get(),
+        ]);
+    }
 }

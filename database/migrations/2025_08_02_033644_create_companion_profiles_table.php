@@ -32,6 +32,9 @@ return new class extends Migration
             $table->foreignId('plan_id')->nullable()->constrained()->onDelete('set null');
             $table->timestamp('plan_expires_at')->nullable();
             $table->foreignId('city_id')->nullable()->constrained()->onDelete('set null');
+            // Deslocamento
+            $table->boolean('attends_home')->default(false);
+            $table->integer('travel_radius_km')->nullable();
             $table->string('whatsapp', 20)->nullable();
             $table->string('telegram', 50)->nullable();
             $table->timestamps();

@@ -16,28 +16,19 @@ class StateController extends Controller
      */
     public function index(Request $request)
     {
-        $query = State::query();
+        $query = State::whereHas('cities'); // Apenas estados que têm cidades
+
         if ($request->search) {
             $query->where('name', 'like', "%{$request->search}%");
         }
         if ($request->uf) {
             $query->where('uf', $request->uf);
         }
-        $states = $query->orderBy('name')->paginate($request->per_page ?? 50);
+
+        $states = $query->orderBy('name')->get(); // Usar get() em vez de paginate() para lista simples
+
         return response()->json([
-            'data' => $states->items(),
-            'meta' => [
-                'current_page' => $states->currentPage(),
-                'per_page' => $states->perPage(),
-                'total' => $states->total(),
-                'last_page' => $states->lastPage(),
-            ],
-            'links' => [
-                'first' => $states->url(1),
-                'last' => $states->url($states->lastPage()),
-                'prev' => $states->previousPageUrl(),
-                'next' => $states->nextPageUrl(),
-            ]
+            'data' => $states,
         ]);
     }
 

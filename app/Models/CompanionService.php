@@ -13,11 +13,13 @@ class CompanionService extends Model
         'companion_profile_id',
         'service_type_id',
         'price',
+        'unit_minutes',
         'description',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
+        'unit_minutes' => 'integer',
     ];
 
     // Relacionamentos

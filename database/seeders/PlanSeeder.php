@@ -53,21 +53,47 @@ class PlanSeeder extends Seeder
             'price' => 9.90,
             'duration_days' => 30,
             'description' => 'Plano básico para clientes',
-            'features' => ['Busca básica', 'Visualizar perfis']
+            'features' => [
+                'view_limited_photos',
+                'contact_whatsapp',
+                'save_favorites',
+                'make_reviews',
+                'view_6_photos_per_profile'
+            ]
         ],
         [
             'name' => 'Premium',
             'price' => 19.90,
             'duration_days' => 30,
             'description' => 'Plano premium com recursos avançados',
-            'features' => ['Busca básica', 'Visualizar perfis', 'Filtros avançados', 'Favoritos ilimitados']
+            'features' => [
+                'view_limited_photos',
+                'contact_whatsapp',
+                'save_favorites',
+                'make_reviews',
+                'view_all_photos',
+                'unlimited_favorites',
+                'advanced_filters',
+                'ask_questions',
+                'priority_support',
+                'exclusive_discounts',
+                'vip_profiles',
+                'black_profiles'
+            ]
         ],
         [
             'name' => 'VIP',
             'price' => 39.90,
             'duration_days' => 30,
             'description' => 'Plano VIP com acesso completo',
-            'features' => ['Busca básica', 'Visualizar perfis', 'Filtros avançados', 'Favoritos ilimitados', 'Acesso prioritário', 'Chat direto', 'Sem anúncios']
+            'features' => [
+                'view_limited_photos',
+                'contact_whatsapp',
+                'save_favorites',
+                'make_reviews',
+                'view_6_photos_per_profile',
+                'exclusive_discounts'
+            ]
         ],
     ];
 

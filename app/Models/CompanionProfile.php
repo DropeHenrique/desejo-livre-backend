@@ -35,6 +35,8 @@ class CompanionProfile extends Model
         'plan_id',
         'plan_expires_at',
         'city_id',
+        'attends_home',
+        'travel_radius_km',
         'whatsapp',
         'telegram',
     ];
@@ -50,6 +52,7 @@ class CompanionProfile extends Model
         'verification_date' => 'datetime',
         'last_active' => 'datetime',
         'plan_expires_at' => 'datetime',
+        'attends_home' => 'boolean',
     ];
 
     public function getSlugOptions(): SlugOptions
@@ -78,6 +81,11 @@ class CompanionProfile extends Model
     public function services()
     {
         return $this->hasMany(CompanionService::class);
+    }
+
+    public function availabilities()
+    {
+        return $this->hasMany(CompanionAvailability::class);
     }
 
     public function districts()

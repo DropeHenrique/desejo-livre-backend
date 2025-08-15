@@ -22,6 +22,9 @@ class DatabaseSeeder extends Seeder
             PlanSeeder::class,
             ServiceTypeSeeder::class,
             BlogSeeder::class, // Adicionando o BlogSeeder
+            TestUsersSeeder::class, // Adicionando o TestUsersSeeder
+            TransvestiteMaleEscortSeeder::class, // Adicionando o TransvestiteMaleEscortSeeder
+            AdminUserSeeder::class, // Adicionando o AdminUserSeeder
         ]);
 
         // Criação de dados de exemplo (apenas em desenvolvimento)
@@ -33,6 +36,7 @@ class DatabaseSeeder extends Seeder
                 CompanionProfileSeeder::class,
                 CompanionDistrictSeeder::class,
                 CompanionServiceSeeder::class,
+                MediaSeeder::class, // Adicionando o MediaSeeder
             ]);
         }
     }
@@ -107,6 +111,7 @@ class DatabaseSeeder extends Seeder
                 $districts = [
                     ['name' => 'Centro', 'city_id' => $city->id],
                     ['name' => 'Savassi', 'city_id' => $city->id],
+                    ['name' => 'Pampulha', 'city_id' => $city->id],
                 ];
 
                 foreach ($districts as $districtData) {

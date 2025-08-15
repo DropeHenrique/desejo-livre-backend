@@ -77,4 +77,10 @@ class Plan extends Model
     {
         return 'R$ ' . number_format($this->price, 2, ',', '.');
     }
+
+    // Accessor para garantir que price seja sempre float
+    public function getPriceAttribute($value)
+    {
+        return (float) $value;
+    }
 }
