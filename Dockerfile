@@ -1,8 +1,8 @@
+# Etapa 0: PHP FPM
 FROM php:8.3-fpm
 
+# Definir diretório de trabalho
 WORKDIR /var/www
-
-ENV DEBIAN_FRONTEND=noninteractive
 
 # Instalar dependências do sistema
 RUN apt-get update && apt-get install -y \
@@ -33,28 +33,21 @@ RUN apt-get update && apt-get install -y \
     libatlas3-base \
     libx11-dev \
     libgtk-3-dev \
-    libboost-python3-dev \
+    libboost-python3-1.81-dev \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
-# Configurar e instalar extensões PHP
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp
-RUN docker-php-ext-install pdo_pgsql mbstring exif pcntl bcmath gd zip
+# Etapa 1: Composer
+FROM composer:latest
 
-# Instalar Redis extension
-RUN pecl install redis && docker-php-ext-enable redis
+# Definir diretório de trabalho
+WORKDIR /var/www
 
-# Instalar pacotes Python
-COPY requirements-python.txt /tmp/requirements-python.txt
-RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements-python.txt
+# Copiar arquivos do projeto para dentro do container
+COPY --from=0 /var/www /var/www
 
-# Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# Copiar aplicação
-COPY . /var/www
-COPY --chown=www-data:www-data . /var/www
-
-USER www-data
+# Expor porta do PHP-FPM
 EXPOSE 9000
+
+# Comando padrão ao iniciar container
 CMD ["php-fpm"]
