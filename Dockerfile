@@ -1,7 +1,9 @@
-# Etapa 0: PHP FPM
+# -------------------------
+# Stage 0: PHP + dependências do sistema
+# -------------------------
 FROM php:8.3-fpm
 
-# Definir diretório de trabalho
+# Define o diretório de trabalho
 WORKDIR /var/www
 
 # Instalar dependências do sistema
@@ -33,21 +35,27 @@ RUN apt-get update && apt-get install -y \
     libatlas3-base \
     libx11-dev \
     libgtk-3-dev \
-    libboost-python3-1.81-dev \
+    libboost-dev \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
-# Etapa 1: Composer
+# Instalar extensões PHP necessárias (exemplo)
+RUN docker-php-ext-install pdo pdo_pgsql mbstring zip exif pcntl bcmath gd
+
+# -------------------------
+# Stage 1: Composer
+# -------------------------
 FROM composer:latest
 
-# Definir diretório de trabalho
 WORKDIR /var/www
 
-# Copiar arquivos do projeto para dentro do container
+# Copia os arquivos do projeto (ajuste se quiser excluir arquivos específicos)
 COPY --from=0 /var/www /var/www
 
-# Expor porta do PHP-FPM
-EXPOSE 9000
+# Instalar dependências Python adicionais se necessário
+# RUN python3 -m pip install --no-cache-dir nome-do-pacote
 
-# Comando padrão ao iniciar container
+# -------------------------
+# Entrypoint (opcional)
+# -------------------------
 CMD ["php-fpm"]
