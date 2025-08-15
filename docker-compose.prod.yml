@@ -1,0 +1,114 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: desejo-livre-app-prod
+    restart: unless-stopped
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_URL=https://api.desejolivre.com
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=desejolivre_prod
+      - DB_USERNAME=desejolivre_user
+      - DB_PASSWORD=desejolivre_password_prod
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - QUEUE_CONNECTION=redis
+      - CACHE_DRIVER=redis
+      - SESSION_DRIVER=redis
+      - MAIL_MAILER=smtp
+      - MAIL_HOST=smtp.gmail.com
+      - MAIL_PORT=587
+      - MAIL_USERNAME=noreply@desejolivre.com
+      - MAIL_PASSWORD=your_mail_password
+      - MAIL_ENCRYPTION=tls
+      - MAIL_FROM_ADDRESS=noreply@desejolivre.com
+      - MAIL_FROM_NAME="DesejoLivre"
+    volumes:
+      - ./storage:/var/www/html/storage
+      - ./public/uploads:/var/www/html/public/uploads
+    depends_on:
+      - db
+      - redis
+    networks:
+      - desejo-livre-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: desejo-livre-nginx-prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/ssl:/etc/nginx/ssl
+      - ./public:/var/www/html/public
+    depends_on:
+      - app
+    networks:
+      - desejo-livre-network
+
+  db:
+    image: postgres:15-alpine
+    container_name: desejo-livre-db-prod
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=desejolivre_prod
+      - POSTGRES_USER=desejolivre_user
+      - POSTGRES_PASSWORD=desejolivre_password_prod
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - desejo-livre-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: desejo-livre-redis-prod
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - desejo-livre-network
+
+  horizon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: desejo-livre-horizon-prod
+    restart: unless-stopped
+    command: php artisan horizon
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=desejolivre_prod
+      - DB_USERNAME=desejolivre_user
+      - DB_PASSWORD=desejolivre_password_prod
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - QUEUE_CONNECTION=redis
+    volumes:
+      - ./storage:/var/www/html/storage
+    depends_on:
+      - db
+      - redis
+    networks:
+      - desejo-livre-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  desejo-livre-network:
+    driver: bridge
