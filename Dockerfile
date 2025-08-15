@@ -3,6 +3,9 @@ FROM php:8.3-fpm
 # Set working directory
 WORKDIR /var/www
 
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
@@ -30,10 +33,9 @@ RUN apt-get update && apt-get install -y \
     libatlas-base-dev \
     libx11-dev \
     libgtk-3-dev \
-    libboost-python-dev
-
-# Clear cache
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+    libboost-python3-dev || true \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp
@@ -51,8 +53,6 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Copy existing application directory contents
 COPY . /var/www
-
-# Copy existing application directory permissions
 COPY --chown=www-data:www-data . /var/www
 
 # Change current user to www-data
