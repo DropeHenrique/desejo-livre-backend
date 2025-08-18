@@ -4,7 +4,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
     container_name: desejo-livre-app-prod
     restart: unless-stopped
     environment:
@@ -30,14 +30,22 @@ services:
       - MAIL_ENCRYPTION=tls
       - MAIL_FROM_ADDRESS=noreply@desejolivre.com
       - MAIL_FROM_NAME="DesejoLivre"
+      - LOG_CHANNEL=stack
+      - LOG_LEVEL=error
     volumes:
       - ./storage:/var/www/html/storage
       - ./public/uploads:/var/www/html/public/uploads
+      - ./logs:/var/www/html/storage/logs
     depends_on:
       - db
       - redis
     networks:
       - desejo-livre-network
+    healthcheck:
+      test: ["CMD", "php-fpm", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   nginx:
     image: nginx:alpine
@@ -54,6 +62,11 @@ services:
       - app
     networks:
       - desejo-livre-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   db:
     image: postgres:15-alpine
@@ -63,25 +76,37 @@ services:
       - POSTGRES_DB=desejolivre_prod
       - POSTGRES_USER=desejolivre_user
       - POSTGRES_PASSWORD=desejolivre_password_prod
+      - POSTGRES_INITDB_ARGS="--encoding=UTF8 --lc-collate=C --lc-ctype=C"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - desejo-livre-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U desejo_livre_user -d desejo_livre_prod"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   redis:
     image: redis:7-alpine
     container_name: desejo-livre-redis-prod
     restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     networks:
       - desejo-livre-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   horizon:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
     container_name: desejo-livre-horizon-prod
     restart: unless-stopped
     command: php artisan horizon
@@ -97,17 +122,27 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - QUEUE_CONNECTION=redis
+      - LOG_CHANNEL=stack
+      - LOG_LEVEL=error
     volumes:
       - ./storage:/var/www/html/storage
+      - ./logs:/var/www/html/storage/logs
     depends_on:
       - db
       - redis
     networks:
       - desejo-livre-network
+    healthcheck:
+      test: ["CMD", "php", "artisan", "horizon:status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
 
 networks:
   desejo-livre-network:
