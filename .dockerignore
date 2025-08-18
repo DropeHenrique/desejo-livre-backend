@@ -1,0 +1,67 @@
+# Dependências
+/vendor
+/node_modules
+npm-debug.log
+yarn-error.log
+
+# Arquivos de desenvolvimento
+.env
+.env.local
+.env.development
+.env.testing
+.env.production
+.phpunit.result.cache
+phpunit.xml
+
+# Logs
+/storage/logs/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+
+# Arquivos temporários
+/tmp
+/temp
+*.tmp
+*.temp
+
+# Cache
+.cache
+.parcel-cache
+
+# IDEs
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile
+Dockerfile.prod
+docker-compose.yml
+docker-compose.prod.yml
+.dockerignore
+
+# Documentação
+README.md
+CHANGELOG.md
+LICENSE
+
+# Testes
+/tests
+phpunit.xml
+.phpunit.result.cache
+
+# Build
+/build
+/dist
