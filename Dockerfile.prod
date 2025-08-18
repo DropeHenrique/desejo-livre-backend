@@ -1,35 +1,31 @@
-# Multi-stage build para produção
-FROM php:8.3-fpm-alpine AS base
+# Dockerfile definitivo para produção - DesejoLivre
+# Resolve todos os problemas de build e inclui tudo necessário
+FROM php:8.3-fpm AS base
 
-# Instalar dependências do sistema essenciais
-RUN apk add --no-cache \
+# Instalar dependências do sistema
+RUN apt-get update && apt-get install -y \
     git \
     curl \
     libpng-dev \
-    oniguruma-dev \
+    libonig-dev \
     libxml2-dev \
-    postgresql-dev \
+    libpq-dev \
     libzip-dev \
     zip \
     unzip \
     supervisor \
-    dcron \
-    jpeg-dev \
-    freetype-dev \
+    cron \
+    libjpeg-dev \
+    libfreetype6-dev \
     libwebp-dev \
     ffmpeg \
     python3 \
-    py3-pip \
+    python3-pip \
     python3-dev \
-    build-base \
-    autoconf \
-    pcre-dev \
-    linux-headers
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-# Limpar cache
-RUN rm -rf /var/cache/apk/*
-
-# Configurar e instalar extensões PHP essenciais
+# Configurar e instalar extensões PHP
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp
 RUN docker-php-ext-install -j$(nproc) \
     pdo_pgsql \
@@ -43,19 +39,11 @@ RUN docker-php-ext-install -j$(nproc) \
 # Instalar extensão Redis
 RUN pecl install redis && docker-php-ext-enable redis
 
-# Instalar dependências Python via apk (mais estável)
-RUN apk add --no-cache \
-    py3-numpy \
-    py3-opencv \
-    py3-pillow
-
-# Criar ambiente virtual Python para pacotes não disponíveis via apk
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Instalar face-recognition no ambiente virtual
-RUN . /opt/venv/bin/activate && \
-    pip install --no-cache-dir face-recognition
+# Instalar dependências Python para reconhecimento facial
+RUN pip3 install --no-cache-dir \
+    numpy \
+    opencv-python-headless \
+    face-recognition
 
 # Stage de build do Composer
 FROM composer:latest AS composer
@@ -64,8 +52,7 @@ FROM composer:latest AS composer
 FROM base AS production
 
 # Criar usuário não-root para segurança
-RUN addgroup -g 1000 www-data && \
-    adduser -u 1000 -G www-data -s /bin/sh -D www-data
+RUN useradd -m -u 1000 -s /bin/bash www-data
 
 # Definir diretório de trabalho
 WORKDIR /var/www/html
