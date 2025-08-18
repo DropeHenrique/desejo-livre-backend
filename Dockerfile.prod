@@ -1,105 +1,54 @@
-# Dockerfile definitivo para produção - DesejoLivre
-FROM php:8.3-fpm AS base
+# -----------------------------
+# Dockerfile.prod
+# -----------------------------
 
-# Instalar dependências do sistema
-RUN apt-get update && apt-get install -y \
-    git \
-    curl \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
-    libpq-dev \
-    libzip-dev \
-    zip \
-    unzip \
-    supervisor \
-    cron \
-    libjpeg-dev \
-    libfreetype6-dev \
-    libwebp-dev \
-    ffmpeg \
-    python3 \
-    python3-pip \
-    python3-venv \
-    python3-dev \
-    build-essential \
-    cmake \
-    libopenblas-dev \
-    liblapack-dev \
-    libx11-dev \
-    libgtk-3-dev \
-    && rm -rf /var/lib/apt/lists/*
+# 1. Base image
+FROM python:3.11-slim-bullseye AS base
 
-# Configurar e instalar extensões PHP
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp
-RUN docker-php-ext-install -j$(nproc) \
-    pdo_pgsql \
-    mbstring \
-    exif \
-    pcntl \
-    bcmath \
-    gd \
-    zip
+# 2. Variáveis de ambiente
+ENV VENV_PATH=/opt/venv \
+    PATH="/opt/venv/bin:$PATH" \
+    DEBIAN_FRONTEND=noninteractive
 
-# Instalar extensão Redis
-RUN pecl install redis && docker-php-ext-enable redis
+# 3. Instala dependências de sistema
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        cmake \
+        git \
+        wget \
+        curl \
+        libglib2.0-0 \
+        libsm6 \
+        libxrender1 \
+        libxext6 \
+        libjpeg-dev \
+        libpng-dev \
+        && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Criar ambiente virtual Python
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# 4. Criar virtualenv
+RUN python3 -m venv $VENV_PATH
 
-# Atualizar pip, setuptools e wheel, instalar dependências Python
-RUN . /opt/venv/bin/activate && \
-    pip install --upgrade pip wheel setuptools && \
-    pip install --no-cache-dir \
-    numpy \
-    opencv-python-headless \
-    dlib==19.24.0 \
-    face-recognition
+# 5. Atualizar pip, setuptools e wheel
+RUN . $VENV_PATH/bin/activate && \
+    pip install --upgrade pip wheel setuptools
 
-# Stage de build do Composer
-FROM composer:latest AS composer
+# 6. Instalar pacotes Python, usando wheels quando possível
+RUN . $VENV_PATH/bin/activate && \
+    pip install --no-cache-dir --only-binary :all: \
+        numpy \
+        opencv-python-headless \
+        dlib==19.24.0 \
+        face-recognition
 
-# Stage final de produção
-FROM base AS production
+# 7. Copiar código da aplicação
+WORKDIR /app
+COPY . /app
 
-# Criar usuário não-root para segurança
-RUN useradd -m -u 1000 -s /bin/bash www-data
+# 8. Instalar dependências da aplicação (requirements.txt se houver)
+# RUN . $VENV_PATH/bin/activate && pip install --no-cache-dir -r requirements.txt
 
-# Definir diretório de trabalho
-WORKDIR /var/www/html
+# 9. Expor porta da aplicação
+EXPOSE 8000
 
-# Copiar arquivos do Composer
-COPY --from=composer /usr/bin/composer /usr/bin/composer
-
-# Copiar arquivos da aplicação
-COPY --chown=www-data:www-data . .
-
-# Instalar dependências do Composer (apenas produção)
-RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress
-
-# Otimizar autoloader
-RUN composer dump-autoload --optimize --no-dev --classmap-authoritative
-
-# Configurar permissões
-RUN chown -R www-data:www-data /var/www/html && \
-    chmod -R 755 /var/www/html/storage && \
-    chmod -R 755 /var/www/html/bootstrap/cache
-
-# Limpar arquivos desnecessários
-RUN rm -rf /tmp/* /var/cache/* /var/tmp/*
-
-# Configurar PHP para produção
-RUN echo "memory_limit = 512M" > /usr/local/etc/php/conf.d/memory-limit.ini && \
-    echo "max_execution_time = 300" > /usr/local/etc/php/conf.d/execution-time.ini && \
-    echo "upload_max_filesize = 100M" > /usr/local/etc/php/conf.d/upload-limits.ini && \
-    echo "post_max_size = 100M" >> /usr/local/etc/php/conf.d/upload-limits.ini
-
-# Configurar supervisor para produção
-COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
-# Expor porta
-EXPOSE 9000
-
-# Comando de inicialização
-CMD ["php-fpm"]
+# 10. Comando padrão
+CMD ["/opt/venv/bin/python", "main.py"]
