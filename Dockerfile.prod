@@ -1,5 +1,4 @@
 # Dockerfile definitivo para produção - DesejoLivre
-# Resolve todos os problemas de build e inclui tudo necessário
 FROM php:8.3-fpm AS base
 
 # Instalar dependências do sistema
@@ -24,6 +23,11 @@ RUN apt-get update && apt-get install -y \
     python3-venv \
     python3-dev \
     build-essential \
+    cmake \
+    libopenblas-dev \
+    liblapack-dev \
+    libx11-dev \
+    libgtk-3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Configurar e instalar extensões PHP
@@ -40,15 +44,17 @@ RUN docker-php-ext-install -j$(nproc) \
 # Instalar extensão Redis
 RUN pecl install redis && docker-php-ext-enable redis
 
-# Criar ambiente virtual Python para evitar problemas de permissão
+# Criar ambiente virtual Python
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Instalar dependências Python para reconhecimento facial no ambiente virtual
+# Atualizar pip, setuptools e wheel, instalar dependências Python
 RUN . /opt/venv/bin/activate && \
+    pip install --upgrade pip wheel setuptools && \
     pip install --no-cache-dir \
     numpy \
     opencv-python-headless \
+    dlib==19.24.0 \
     face-recognition
 
 # Stage de build do Composer
