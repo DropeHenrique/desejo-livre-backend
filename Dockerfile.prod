@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     python3 \
     python3-pip \
+    python3-venv \
     python3-dev \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
@@ -39,8 +40,13 @@ RUN docker-php-ext-install -j$(nproc) \
 # Instalar extensão Redis
 RUN pecl install redis && docker-php-ext-enable redis
 
-# Instalar dependências Python para reconhecimento facial
-RUN pip3 install --no-cache-dir \
+# Criar ambiente virtual Python para evitar problemas de permissão
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Instalar dependências Python para reconhecimento facial no ambiente virtual
+RUN . /opt/venv/bin/activate && \
+    pip install --no-cache-dir \
     numpy \
     opencv-python-headless \
     face-recognition
