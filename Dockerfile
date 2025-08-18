@@ -1,61 +1,63 @@
-# -------------------------
-# Stage 0: PHP + dependências do sistema
-# -------------------------
 FROM php:8.3-fpm
 
-# Define o diretório de trabalho
+# Set working directory
 WORKDIR /var/www
 
-# Instalar dependências do sistema
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
     curl \
-    zip \
-    unzip \
-    supervisor \
-    cron \
-    build-essential \
-    cmake \
-    pkg-config \
-    zlib1g-dev \
     libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
-    libwebp-dev \
     libonig-dev \
     libxml2-dev \
     libpq-dev \
     libzip-dev \
+    zip \
+    unzip \
+    supervisor \
+    cron \
+    libjpeg-dev \
+    libfreetype6-dev \
+    libwebp-dev \
     ffmpeg \
     python3 \
     python3-pip \
     python3-dev \
+    build-essential \
+    cmake \
     libblas-dev \
     liblapack-dev \
-    libatlas3-base \
+    libatlas-base-dev \
     libx11-dev \
     libgtk-3-dev \
-    libboost-dev \
- && apt-get clean \
- && rm -rf /var/lib/apt/lists/*
+    libboost-python-dev
 
-# Instalar extensões PHP necessárias (exemplo)
-RUN docker-php-ext-install pdo pdo_pgsql mbstring zip exif pcntl bcmath gd
+# Clear cache
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# -------------------------
-# Stage 1: Composer
-# -------------------------
-FROM composer:latest
+# Install PHP extensions
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp
+RUN docker-php-ext-install pdo_pgsql mbstring exif pcntl bcmath gd zip
 
-WORKDIR /var/www
+# Install Redis extension
+RUN pecl install redis && docker-php-ext-enable redis
 
-# Copia os arquivos do projeto (ajuste se quiser excluir arquivos específicos)
-COPY --from=0 /var/www /var/www
+# Install Python packages for facial recognition
+COPY requirements-python.txt /tmp/requirements-python.txt
+RUN pip3 install --no-cache-dir -r /tmp/requirements-python.txt
 
-# Instalar dependências Python adicionais se necessário
-# RUN python3 -m pip install --no-cache-dir nome-do-pacote
+# Get latest Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# -------------------------
-# Entrypoint (opcional)
-# -------------------------
+# Copy existing application directory contents
+COPY . /var/www
+
+# Copy existing application directory permissions
+COPY --chown=www-data:www-data . /var/www
+
+# Change current user to www-data
+USER www-data
+
+# Expose port 9000 and start php-fpm server
+EXPOSE 9000
 CMD ["php-fpm"]
