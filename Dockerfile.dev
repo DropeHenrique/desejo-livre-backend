@@ -4,17 +4,7 @@ WORKDIR /var/www
 
 # Instalar dependências
 RUN apt-get update && apt-get install -y \
-    git \
-    curl \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
-    libpq-dev \
-    libzip-dev \
-    zip \
-    unzip \
-    supervisor \
-    cron \
+    git curl libpng-dev libonig-dev libxml2-dev libpq-dev libzip-dev zip unzip supervisor cron \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Extensões PHP
@@ -27,14 +17,15 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Copiar código
 COPY . /var/www
 
-# Ajustar permissões (sem mudar usuário do container)
-RUN chown -R www-data:www-data /var/www
+# Permissões
+RUN chown -R www-data:www-data /var/www \
+    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache
 
-# NÃO mudar usuário para www-data
-# USER www-data
+# Configurar PHP-FPM para usar TCP
+RUN sed -i 's|listen = .*|listen = 0.0.0.0:9000|' /usr/local/etc/php-fpm.d/www.conf
 
-# Expõe porta PHP-FPM
+# Expor porta
 EXPOSE 9000
 
-# Rodar PHP-FPM no foreground
+# Rodar no foreground
 CMD ["php-fpm", "-F"]
