@@ -1,35 +1,40 @@
+# Dockerfile.dev
 FROM php:8.3-fpm
 
-# Tudo acontece em /code (EasyPanel clona aí)
-WORKDIR /code
-
-# Sistema
+# 1) Dependências do sistema
 RUN apt-get update && apt-get install -y \
-    git curl ca-certificates gnupg \
+    git curl zip unzip \
     libpng-dev libonig-dev libxml2-dev libpq-dev libzip-dev \
-    zip unzip supervisor cron \
- && rm -rf /var/lib/apt/lists/*
+    nginx supervisor cron \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Node 20.x (Vite 7 exige)
-RUN mkdir -p /etc/apt/keyrings \
- && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
- && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
- && apt-get update && apt-get install -y nodejs \
- && node -v && npm -v
-
-# PHP extensions + Redis
+# 2) Extensões do PHP
 RUN docker-php-ext-install pdo_pgsql mbstring exif pcntl bcmath gd zip
 RUN pecl install redis && docker-php-ext-enable redis
 
-# Composer
+# 3) Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# PHP-FPM ouvindo TCP (não socket)
-RUN sed -i 's|^listen = .*|listen = 0.0.0.0:9000|' /usr/local/etc/php-fpm.d/www.conf
+# 4) Diretório de trabalho
+WORKDIR /var/www
 
-# Entrypoint
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+# 5) Copiar projeto
+COPY . /var/www
+
+# 6) Permissões para Laravel
+RUN chown -R www-data:www-data /var/www \
+ && find storage bootstrap/cache -type d -exec chmod 775 {} \; \
+ && find storage bootstrap/cache -type f -exec chmod 664 {} \;
+
+# 7) Configs Nginx e Supervisor
+COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY docker/supervisor/supervisord.conf /etc/supervisor/supervisord.conf
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-EXPOSE 9000
-CMD ["entrypoint.sh"]
+# 8) Expoe HTTP (nginx)
+EXPOSE 80
+
+# 9) Entrypoint (faz composer install, migrate, etc) e inicia supervisor
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]
