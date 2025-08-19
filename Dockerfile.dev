@@ -44,4 +44,4 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 EXPOSE 9000
 
 # Usa entrypoint que mantém o container vivo
-CMD ["entrypoint.sh"]
+CMD ["deploy-prod.sh"]
