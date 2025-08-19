@@ -48,48 +48,9 @@ COPY . /var/www
 # Generate autoloader and run scripts
 RUN composer dump-autoload --optimize
 
-# Create PHP-FPM configuration
-RUN mkdir -p /usr/local/etc/php-fpm.d
-RUN echo '[www]\n\
-user = root\n\
-group = root\n\
-listen = 9000\n\
-listen.owner = root\n\
-listen.group = root\n\
-pm = dynamic\n\
-pm.max_children = 5\n\
-pm.start_servers = 2\n\
-pm.min_spare_servers = 1\n\
-pm.max_spare_servers = 3\n\
-' > /usr/local/etc/php-fpm.d/www.conf
-
 # Set proper permissions
 RUN chown -R www-data:www-data /var/www
 
-# Create startup script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-# Start PHP-FPM in background\n\
-php-fpm -D\n\
-\n\
-# Wait a moment for PHP-FPM to start\n\
-sleep 2\n\
-\n\
-# Check if PHP-FPM is running\n\
-if pgrep php-fpm > /dev/null; then\n\
-    echo "PHP-FPM started successfully"\n\
-else\n\
-    echo "Failed to start PHP-FPM"\n\
-    exit 1\n\
-fi\n\
-\n\
-# Keep container running\n\
-tail -f /dev/null\n\
-' > /usr/local/bin/start.sh
-
-RUN chmod +x /usr/local/bin/start.sh
-
-# Expose port 9000 and start entrypoint
+# Expose port 9000 and start php-fpm server
 EXPOSE 9000
-CMD ["/usr/local/bin/start.sh"]
+CMD ["php-fpm"]
