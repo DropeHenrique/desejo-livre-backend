@@ -1,9 +1,8 @@
 FROM php:8.3-fpm
 
-# Diretório de trabalho
 WORKDIR /var/www
 
-# Instalar dependências do sistema
+# Instalar dependências
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -20,22 +19,22 @@ RUN apt-get update && apt-get install -y \
 
 # Extensões PHP
 RUN docker-php-ext-install pdo_pgsql mbstring exif pcntl bcmath gd zip
-
-# Redis
 RUN pecl install redis && docker-php-ext-enable redis
 
 # Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copiar aplicação
+# Copiar código
 COPY . /var/www
-COPY --chown=www-data:www-data . /var/www
 
-# Usuário
-USER www-data
+# Ajustar permissões (sem mudar usuário do container)
+RUN chown -R www-data:www-data /var/www
 
-# Expõe porta do PHP-FPM
+# NÃO mudar usuário para www-data
+# USER www-data
+
+# Expõe porta PHP-FPM
 EXPOSE 9000
 
-# Comando padrão
+# Rodar PHP-FPM no foreground
 CMD ["php-fpm", "-F"]
