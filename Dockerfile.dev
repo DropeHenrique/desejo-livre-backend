@@ -66,6 +66,30 @@ pm.max_spare_servers = 3\n\
 # Set proper permissions
 RUN chown -R www-data:www-data /var/www
 
-# Expose port 9000 and start php-fpm server
+# Create startup script
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+# Start PHP-FPM in background\n\
+php-fpm -D\n\
+\n\
+# Wait a moment for PHP-FPM to start\n\
+sleep 2\n\
+\n\
+# Check if PHP-FPM is running\n\
+if pgrep php-fpm > /dev/null; then\n\
+    echo "PHP-FPM started successfully"\n\
+else\n\
+    echo "Failed to start PHP-FPM"\n\
+    exit 1\n\
+fi\n\
+\n\
+# Keep container running\n\
+tail -f /dev/null\n\
+' > /usr/local/bin/start.sh
+
+RUN chmod +x /usr/local/bin/start.sh
+
+# Expose port 9000 and start entrypoint
 EXPOSE 9000
-CMD ["php-fpm", "-F"]
+CMD ["/usr/local/bin/start.sh"]
