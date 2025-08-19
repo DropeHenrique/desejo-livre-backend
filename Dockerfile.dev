@@ -1,42 +1,36 @@
 FROM php:8.3-fpm
 
-WORKDIR /var/www
+# Tudo vai rodar em /code, que é onde o EasyPanel coloca o repositório
+WORKDIR /code
 
-# 1) Dependências do sistema
+# Sistema
 RUN apt-get update && apt-get install -y \
     git curl ca-certificates gnupg \
     libpng-dev libonig-dev libxml2-dev libpq-dev libzip-dev \
     zip unzip supervisor cron \
  && rm -rf /var/lib/apt/lists/*
 
-# 2) Node 20.x (necessário para Vite 7)
-#   - Usando NodeSource
+# Node 20.x para Vite 7
 RUN mkdir -p /etc/apt/keyrings \
  && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
  && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
  && apt-get update && apt-get install -y nodejs \
  && node -v && npm -v
 
-# 3) Extensões do PHP
+# PHP
 RUN docker-php-ext-install pdo_pgsql mbstring exif pcntl bcmath gd zip
 RUN pecl install redis && docker-php-ext-enable redis
 
-# 4) Composer
+# Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# 5) Copia código
-COPY . /var/www
-
-# 6) Permissões para Laravel
-RUN chown -R www-data:www-data /var/www \
- && chmod -R 775 /var/www/storage /var/www/bootstrap/cache || true
-
-# 7) PHP-FPM ouvindo em TCP (evita problemas de socket)
-RUN sed -i 's|^listen = .*|listen = 0.0.0.0:9000|' /usr/local/etc/php-fpm.d/www.conf
-
-# 8) Entrypoint
+# Não copie o código aqui! O EasyPanel clona em /code no deploy.
+# Só copie o entrypoint
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# PHP-FPM em TCP (evita problemas de socket)
+RUN sed -i 's|^listen = .*|listen = 0.0.0.0:9000|' /usr/local/etc/php-fpm.d/www.conf
 
 EXPOSE 9000
 CMD ["entrypoint.sh"]
