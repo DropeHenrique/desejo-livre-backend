@@ -48,17 +48,14 @@ COPY . /var/www
 # Generate autoloader and run scripts
 RUN composer dump-autoload --optimize
 
-# Copy existing application directory permissions
-COPY --chown=www-data:www-data . /var/www
-
 # Create PHP-FPM configuration
 RUN mkdir -p /usr/local/etc/php-fpm.d
 RUN echo '[www]\n\
-user = www-data\n\
-group = www-data\n\
+user = root\n\
+group = root\n\
 listen = 9000\n\
-listen.owner = www-data\n\
-listen.group = www-data\n\
+listen.owner = root\n\
+listen.group = root\n\
 pm = dynamic\n\
 pm.max_children = 5\n\
 pm.start_servers = 2\n\
@@ -66,8 +63,8 @@ pm.min_spare_servers = 1\n\
 pm.max_spare_servers = 3\n\
 ' > /usr/local/etc/php-fpm.d/www.conf
 
-# Change current user to www-data
-USER www-data
+# Set proper permissions
+RUN chown -R www-data:www-data /var/www
 
 # Expose port 9000 and start php-fpm server
 EXPOSE 9000
