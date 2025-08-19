@@ -38,4 +38,4 @@ USER www-data
 EXPOSE 9000
 
 # Comando padrão
-CMD ["php-fpm"]
+CMD ["php-fpm", "-F"]
