@@ -8,6 +8,7 @@ use App\Models\City;
 use App\Models\District;
 use App\Models\Plan;
 use App\Models\CompanionProfile;
+use Laravel\Scout\Scout;
 
 class DatabaseSeeder extends Seeder
 {
@@ -16,6 +17,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // Desabilitar Scout durante o seeding para evitar erros do Algolia
+        Scout::withoutSyncing();
+
         // Seeders básicos que devem ser executados sempre (dados fundamentais)
         $this->call([
             StateSeeder::class,
@@ -46,6 +50,9 @@ class DatabaseSeeder extends Seeder
                 TestSubscriptionSeeder::class, // Adicionando TestSubscriptionSeeder
             ]);
         }
+
+        // Reabilitar Scout após o seeding
+        Scout::shouldSync();
     }
 
     /**
