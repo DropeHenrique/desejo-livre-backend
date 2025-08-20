@@ -16,27 +16,34 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Seeders que devem ser executados sempre
+        // Seeders básicos que devem ser executados sempre (dados fundamentais)
         $this->call([
             StateSeeder::class,
+            LocationSeeder::class, // Adicionando LocationSeeder
             PlanSeeder::class,
             ServiceTypeSeeder::class,
-            BlogSeeder::class, // Adicionando o BlogSeeder
-            TestUsersSeeder::class, // Adicionando o TestUsersSeeder
-            TransvestiteMaleEscortSeeder::class, // Adicionando o TransvestiteMaleEscortSeeder
-            AdminUserSeeder::class, // Adicionando o AdminUserSeeder
+            AdminUserSeeder::class, // Admin deve ser criado primeiro
+        ]);
+
+        // Seeders de conteúdo e usuários
+        $this->call([
+            BlogSeeder::class,
+            TestUsersSeeder::class,
+            TransvestiteMaleEscortSeeder::class,
         ]);
 
         // Criação de dados de exemplo (apenas em desenvolvimento)
         if (app()->environment('local', 'development')) {
             $this->createSampleData();
 
-            // Criar acompanhantes de exemplo
+            // Seeders de dados de exemplo para desenvolvimento
             $this->call([
+                SampleDataSeeder::class, // Adicionando SampleDataSeeder
                 CompanionProfileSeeder::class,
                 CompanionDistrictSeeder::class,
                 CompanionServiceSeeder::class,
-                MediaSeeder::class, // Adicionando o MediaSeeder
+                MediaSeeder::class,
+                TestSubscriptionSeeder::class, // Adicionando TestSubscriptionSeeder
             ]);
         }
     }
