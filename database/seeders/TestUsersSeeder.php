@@ -21,8 +21,27 @@ class TestUsersSeeder extends Seeder
 
         // Buscar localização de exemplo (São Paulo)
         $sp = State::where('uf', 'SP')->first();
+        if (!$sp) {
+            echo "❌ Estado SP não encontrado. Execute o StateSeeder primeiro.\n";
+            return;
+        }
+
         $saoPaulo = City::where('name', 'São Paulo')->where('state_id', $sp->id)->first();
+        if (!$saoPaulo) {
+            echo "❌ Cidade São Paulo não encontrada. Execute o LocationSeeder primeiro.\n";
+            return;
+        }
+
         $centro = District::where('name', 'Centro')->where('city_id', $saoPaulo->id)->first();
+        if (!$centro) {
+            echo "⚠️ Bairro Centro não encontrado. Criando...\n";
+            $centro = District::create([
+                'name' => 'Centro',
+                'slug' => 'centro',
+                'city_id' => $saoPaulo->id,
+            ]);
+            echo "✅ Bairro Centro criado com sucesso!\n";
+        }
 
         // 1. Criar usuário CLIENTE
         $clientUser = User::firstOrCreate(

@@ -7,6 +7,10 @@ use Illuminate\Database\Seeder;
 use App\Models\Media;
 use App\Models\CompanionProfile;
 use App\Models\User;
+use App\Models\State;
+use App\Models\City;
+use App\Models\District;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 
 class MediaSeeder extends Seeder
@@ -31,14 +35,132 @@ class MediaSeeder extends Seeder
         if ($companions->isEmpty()) {
             $this->command->info('Nenhuma acompanhante encontrada. Criando algumas para teste...');
 
-            // Criar algumas acompanhantes de teste
-            $users = User::factory()->count(5)->create(['user_type' => 'companion']);
+            // Buscar localizações existentes
+            $sp = State::where('uf', 'SP')->first();
+            $saoPaulo = City::where('name', 'São Paulo')->where('state_id', $sp->id)->first();
+            $centro = District::where('name', 'Centro')->where('city_id', $saoPaulo->id)->first();
 
-            foreach ($users as $user) {
-                CompanionProfile::factory()->create([
-                    'user_id' => $user->id,
-                    'artistic_name' => fake()->firstName('female') . ' ' . fake()->lastName(),
-                ]);
+            if (!$sp || !$saoPaulo || !$centro) {
+                $this->command->error('Localizações necessárias não encontradas. Execute o LocationSeeder primeiro.');
+                return;
+            }
+
+            // Criar algumas acompanhantes de teste de forma controlada
+            $companionData = [
+                [
+                    'name' => 'Ana Silva',
+                    'email' => 'ana.silva@teste.com',
+                    'artistic_name' => 'Ana Silva',
+                    'age' => 25,
+                    'about_me' => 'Acompanhante profissional com experiência em diversos serviços.',
+                    'height' => 165,
+                    'weight' => 55,
+                    'hair_color' => 'castanho',
+                    'eye_color' => 'castanho',
+                    'ethnicity' => 'branca',
+                    'has_tattoos' => false,
+                    'has_piercings' => true,
+                    'is_smoker' => false,
+                    'verified' => true,
+                    'verification_date' => now(),
+                    'online_status' => true,
+                    'last_active' => now(),
+                    'city_id' => $saoPaulo->id,
+                    'whatsapp' => '(11) 91111-1111',
+                    'telegram' => '@ana_silva',
+                ],
+                [
+                    'name' => 'Beatriz Costa',
+                    'email' => 'beatriz.costa@teste.com',
+                    'artistic_name' => 'Beatriz Costa',
+                    'age' => 28,
+                    'about_me' => 'Acompanhante elegante e discreta, ofereço serviços de qualidade.',
+                    'height' => 170,
+                    'weight' => 58,
+                    'hair_color' => 'loiro',
+                    'eye_color' => 'azul',
+                    'ethnicity' => 'branca',
+                    'has_tattoos' => true,
+                    'has_piercings' => false,
+                    'is_smoker' => false,
+                    'verified' => true,
+                    'verification_date' => now(),
+                    'online_status' => true,
+                    'last_active' => now(),
+                    'city_id' => $saoPaulo->id,
+                    'whatsapp' => '(11) 92222-2222',
+                    'telegram' => '@beatriz_costa',
+                ],
+                [
+                    'name' => 'Camila Santos',
+                    'email' => 'camila.santos@teste.com',
+                    'artistic_name' => 'Camila Santos',
+                    'age' => 23,
+                    'about_me' => 'Acompanhante jovem e vibrante, especialista em massagens relaxantes.',
+                    'height' => 168,
+                    'weight' => 52,
+                    'hair_color' => 'ruivo',
+                    'eye_color' => 'verde',
+                    'ethnicity' => 'branca',
+                    'has_tattoos' => false,
+                    'has_piercings' => true,
+                    'is_smoker' => false,
+                    'verified' => true,
+                    'verification_date' => now(),
+                    'online_status' => true,
+                    'last_active' => now(),
+                    'city_id' => $saoPaulo->id,
+                    'whatsapp' => '(11) 93333-3333',
+                    'telegram' => '@camila_santos',
+                ]
+            ];
+
+            foreach ($companionData as $data) {
+                // Criar usuário
+                $user = User::firstOrCreate(
+                    ['email' => $data['email']],
+                    [
+                        'name' => $data['name'],
+                        'email' => $data['email'],
+                        'password' => Hash::make('password'),
+                        'user_type' => 'companion',
+                        'phone' => $data['whatsapp'],
+                        'active' => true,
+                        'email_verified_at' => now(),
+                        'cep' => '01234-567',
+                        'address' => 'Rua das Flores, 123',
+                        'complement' => 'Apto 45',
+                        'state_id' => $sp->id,
+                        'city_id' => $saoPaulo->id,
+                        'district_id' => $centro->id,
+                    ]
+                );
+
+                // Criar perfil de acompanhante
+                CompanionProfile::firstOrCreate(
+                    ['user_id' => $user->id],
+                    [
+                        'user_id' => $user->id,
+                        'artistic_name' => $data['artistic_name'],
+                        'age' => $data['age'],
+                        'about_me' => $data['about_me'],
+                        'height' => $data['height'],
+                        'weight' => $data['weight'],
+                        'hair_color' => $data['hair_color'],
+                        'eye_color' => $data['eye_color'],
+                        'ethnicity' => $data['ethnicity'],
+                        'has_tattoos' => $data['has_tattoos'],
+                        'has_piercings' => $data['has_piercings'],
+                        'is_smoker' => $data['is_smoker'],
+                        'verified' => $data['verified'],
+                        'verification_date' => $data['verification_date'],
+                        'online_status' => $data['online_status'],
+                        'last_active' => $data['last_active'],
+                        'city_id' => $data['city_id'],
+                        'whatsapp' => $data['whatsapp'],
+                        'telegram' => $data['telegram'],
+                    ]
+                );
             }
 
             $companions = CompanionProfile::with('user')->get();

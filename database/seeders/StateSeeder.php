@@ -52,6 +52,7 @@ class StateSeeder extends Seeder
                 [
                     'name' => $stateData['name'],
                     'uf' => $stateData['uf'],
+                    'slug' => strtolower(str_replace(' ', '-', $stateData['name'])),
                 ]
             );
         }

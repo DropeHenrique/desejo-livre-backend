@@ -8,6 +8,7 @@ use App\Models\City;
 use App\Models\Plan;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use App\Models\District;
 
 class CompanionProfileSeeder extends Seeder
 {
@@ -56,6 +57,10 @@ class CompanionProfileSeeder extends Seeder
             $plan = $plans->random();
             $timestamp = time();
 
+            // Buscar estado e bairro para a cidade
+            $state = $city->state;
+            $district = District::where('city_id', $city->id)->first();
+
             $user = User::create([
                 'name' => fake()->name(),
                 'email' => "companion{$i}_{$timestamp}@example.com",
@@ -63,6 +68,13 @@ class CompanionProfileSeeder extends Seeder
                 'user_type' => 'companion',
                 'phone' => fake()->phoneNumber(),
                 'active' => true,
+                'email_verified_at' => now(),
+                'cep' => fake()->postcode(),
+                'address' => fake()->streetAddress(),
+                'complement' => fake()->optional(0.7)->secondaryAddress(),
+                'state_id' => $state->id,
+                'city_id' => $city->id,
+                'district_id' => $district ? $district->id : null,
             ]);
 
             // Criar perfil do acompanhante
@@ -100,6 +112,10 @@ class CompanionProfileSeeder extends Seeder
             $plan = $plans->random();
             $timestamp = time();
 
+            // Buscar estado e bairro para a cidade
+            $state = $city->state;
+            $district = District::where('city_id', $city->id)->first();
+
             $user = User::create([
                 'name' => fake()->name(),
                 'email' => "featured{$i}_{$timestamp}@example.com",
@@ -107,6 +123,13 @@ class CompanionProfileSeeder extends Seeder
                 'user_type' => 'companion',
                 'phone' => fake()->phoneNumber(),
                 'active' => true,
+                'email_verified_at' => now(),
+                'cep' => fake()->postcode(),
+                'address' => fake()->streetAddress(),
+                'complement' => fake()->optional(0.7)->secondaryAddress(),
+                'state_id' => $state->id,
+                'city_id' => $city->id,
+                'district_id' => $district ? $district->id : null,
             ]);
 
             CompanionProfile::create([
